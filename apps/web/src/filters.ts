@@ -11,7 +11,7 @@ export interface Filters {
 }
 
 export const DEFAULT_FILTERS: Filters = {
-  maxCostPln: 2600,
+  maxCostPln: 3500,
   minAreaM2: 0,
   tiers: ['top', 'worth'],
   districts: [],

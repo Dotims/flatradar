@@ -66,11 +66,13 @@ export function readIso(row: DbRow, column: string): string {
   return value;
 }
 
-/** jsonb comes back already parsed. */
+/** jsonb arrives as the raw text of the document, not as a parsed value. */
 export function readStringArray(row: DbRow, column: string): string[] {
   const value = read(row, column);
-  if (!Array.isArray(value) || value.some((item) => typeof item !== 'string')) {
+  const parsed: unknown = typeof value === 'string' ? JSON.parse(value) : value;
+
+  if (!Array.isArray(parsed) || parsed.some((item) => typeof item !== 'string')) {
     throw new Error(`Column "${column}" does not hold a list of strings.`);
   }
-  return value as string[];
+  return parsed as string[];
 }

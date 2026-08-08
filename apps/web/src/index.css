@@ -1,0 +1,72 @@
+@import 'tailwindcss';
+@import 'leaflet/dist/leaflet.css';
+
+@theme {
+  --color-ember-50: #fff7ed;
+  --color-ember-200: #fed7aa;
+  --color-ember-300: #fdba74;
+  --color-ember-400: #fb923c;
+  --color-ember-500: #f97316;
+  --color-ember-600: #ea580c;
+  --color-ember-700: #c2410c;
+  --color-ember-900: #7c2d12;
+
+  --color-ash-800: #292524;
+  --color-ash-900: #1c1917;
+  --color-ash-950: #0c0a09;
+
+  --animate-sweep: sweep 4s linear infinite;
+  --animate-ping-slow: ping-slow 2.6s cubic-bezier(0, 0, 0.2, 1) infinite;
+  --animate-rise: rise 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes sweep {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes ping-slow {
+  75%,
+  100% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+
+html {
+  color-scheme: dark;
+  scrollbar-color: var(--color-ember-700) var(--color-ash-900);
+}
+
+body {
+  background:
+    radial-gradient(
+      60rem 40rem at 15% -10%,
+      --alpha(var(--color-ember-600) / 22%),
+      transparent 60%
+    ),
+    radial-gradient(50rem 35rem at 95% 0%, --alpha(var(--color-red-700) / 18%), transparent 55%),
+    var(--color-ash-950);
+  background-attachment: fixed;
+  min-height: 100dvh;
+}
+
+/* Leaflet paints its own light chrome; this pulls it into the dark theme. */
+.leaflet-container {
+  background: var(--color-ash-900);
+  font: inherit;
+}
+.leaflet-control-attribution,
+.leaflet-control-zoom a {
+  background: --alpha(var(--color-ash-950) / 85%) !important;
+  color: var(--color-ember-200) !important;
+  border-color: --alpha(var(--color-ember-700) / 40%) !important;
+}

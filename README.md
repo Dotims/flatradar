@@ -9,10 +9,13 @@ and the good ones in Kraków are gone within hours.
 
 ## Where it runs
 
-Otodom is collected by GitHub Actions every fifteen minutes, writing to Neon. OLX
-answers 403 from datacenter addresses, so it is collected from a machine on an ordinary
-connection instead of being disguised into getting through. `FLATRADAR_SOURCES` picks
-which portals a round asks for.
+Otodom is collected by GitHub Actions every fifteen minutes, writing to Neon.
+
+OLX answers 403 to anything from a datacenter address. The block sits at the edge and is
+decided on the address before a single header is read, so nothing about the request can
+change the answer and there is nothing to disguise. It is collected from an ordinary
+connection instead: a local timer, or a phone posting to `/api/ingest/olx`
+(see `docs/olx-from-a-phone.md`). `FLATRADAR_SOURCES` picks the portals for a round.
 
 ## Status
 
@@ -91,6 +94,7 @@ pnpm check   # prettier + eslint + tsc + tests
 ## Layout
 
 ```
+api/                  serverless functions for the deployed dashboard
 apps/collector/       fetching, normalising, classifying, serving the API
   src/sources/        one folder per portal, each producing a NormalizedOffer
   src/domain/         the rules: districts, costs, tiers. No database, no network.

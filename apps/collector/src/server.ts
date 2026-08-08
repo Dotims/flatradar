@@ -1,6 +1,6 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
+import { assertIngestAllowed, ingestOlx, readOffers, syncOtodom } from './api/handlers.ts';
 import { openDatabase } from './db/client.ts';
-import { listClassifiedOffers } from './db/classifications.ts';
 import { migrate } from './db/migrate.ts';
 
 const PORT = Number(process.env.FLATRADAR_PORT ?? 4317);
@@ -17,6 +17,13 @@ function sendJson(response: ServerResponse, status: number, body: unknown): void
   response.end(payload);
 }
 
+async function readBody(request: IncomingMessage): Promise<unknown> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of request) chunks.push(chunk as Buffer);
+  if (chunks.length === 0) return null;
+  return JSON.parse(Buffer.concat(chunks).toString('utf8'));
+}
+
 export async function startServer(port: number = PORT): Promise<ReturnType<typeof createServer>> {
   const sql = openDatabase();
   await migrate(sql);
@@ -24,28 +31,32 @@ export async function startServer(port: number = PORT): Promise<ReturnType<typeo
   const server = createServer((request: IncomingMessage, response: ServerResponse) => {
     const url = new URL(request.url ?? '/', `http://${HOST}:${port}`);
 
-    if (request.method !== 'GET') {
-      sendJson(response, 405, { error: 'Only GET is supported.' });
-      return;
-    }
-
     void (async () => {
       try {
-        switch (url.pathname) {
-          case '/api/offers':
-            sendJson(response, 200, { offers: await listClassifiedOffers(sql) });
-            return;
-          case '/api/health':
-            sendJson(response, 200, { ok: true });
-            return;
-          default:
-            sendJson(response, 404, { error: `Nothing at ${url.pathname}.` });
-            return;
+        if (request.method === 'GET' && url.pathname === '/api/offers') {
+          sendJson(response, 200, await readOffers(sql));
+          return;
         }
+        if (request.method === 'GET' && url.pathname === '/api/health') {
+          sendJson(response, 200, { ok: true });
+          return;
+        }
+        if (request.method === 'POST' && url.pathname === '/api/sync') {
+          sendJson(response, 200, await syncOtodom(sql));
+          return;
+        }
+        if (request.method === 'POST' && url.pathname === '/api/ingest/olx') {
+          assertIngestAllowed((request.headers['x-flatradar-token'] as string | undefined) ?? null);
+          sendJson(response, 200, await ingestOlx(sql, await readBody(request)));
+          return;
+        }
+        sendJson(response, 404, { error: `Nothing at ${url.pathname}.` });
       } catch (error) {
         // Detail stays in the terminal, not in the browser.
         console.error(error);
-        sendJson(response, 500, { error: 'The query failed. See the collector output.' });
+        sendJson(response, 500, {
+          error: error instanceof Error ? error.message : 'The request failed.',
+        });
       }
     })();
   });
