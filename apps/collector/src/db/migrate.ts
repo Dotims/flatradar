@@ -4,13 +4,7 @@ import type { DatabaseSync } from 'node:sqlite';
 import { config } from '../config.ts';
 import { openDatabase } from './open.ts';
 
-/**
- * Migrations are .sql files in the migrations directory, applied once, in name order.
- * The database itself tracks which versions ran, so a second run is a no-op.
- *
- * Deliberately without a migration library: the whole thing is thirty visible lines,
- * and the schema is the one part of this project worth keeping in plain sight.
- */
+/** Applies .sql files once each, in name order. A second run is a no-op. */
 export function migrate(db: DatabaseSync, migrationsDir: string = config.migrationsDir): string[] {
   db.exec(`
     create table if not exists schema_migrations (

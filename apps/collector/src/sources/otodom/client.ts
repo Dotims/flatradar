@@ -4,15 +4,11 @@ import type { OtodomAdResponse, OtodomListItem, OtodomSearchResponse } from './t
 const ORIGIN = 'https://www.otodom.pl';
 const SEARCH_PATH = '/pl/wyniki/wynajem/mieszkanie/malopolskie/krakow/krakow/krakow';
 
-/** Pause between requests: there is no hurry, and the service is not ours. */
+/** The service is not ours. */
 const REQUEST_DELAY_MS = 1_000;
 
-/**
- * Otodom serves its pages from Next.js, which exposes the same data at
- * `/_next/data/<buildId>/<page>.json`. The build id changes on every deploy of theirs,
- * without warning, and a stale one answers 404. It is scraped from the search page and
- * kept here until it stops working.
- */
+// Next.js serves the same data at /_next/data/<buildId>/<page>.json. The build id
+// changes on every deploy of theirs and a stale one answers 404.
 let cachedBuildId: string | null = null;
 
 function extractBuildId(html: string): string {
@@ -31,11 +27,7 @@ async function getBuildId(forceRefresh = false): Promise<string> {
   return cachedBuildId;
 }
 
-/**
- * Next.js answers a redirect with status 200 and a marker in the body instead of a
- * Location header. Without this check the caller sees a successful response with no
- * listings in it and concludes, wrongly, that Kraków has run out of flats.
- */
+/** Next.js sends redirects as status 200 with a marker in the body, not a header. */
 function assertNotRedirect(response: { pageProps: { __N_REDIRECT?: string } }, url: string): void {
   const target = response.pageProps.__N_REDIRECT;
   if (target !== undefined) {
@@ -43,11 +35,7 @@ function assertNotRedirect(response: { pageProps: { __N_REDIRECT?: string } }, u
   }
 }
 
-/**
- * Runs a data request, and treats a 404 as "the build id expired" rather than as "this
- * page does not exist": it refreshes the id once and tries again. Without that, every
- * deploy on their side would stop collection silently until someone noticed.
- */
+/** A 404 means the build id expired, so refresh it once and retry. */
 async function fetchData<T extends { pageProps: { __N_REDIRECT?: string } }>(
   toPath: (buildId: string) => string,
 ): Promise<T> {
@@ -71,11 +59,7 @@ export interface FetchOtodomOptions {
   pages?: number;
 }
 
-/**
- * The newest listings first. Shallow on purpose: running every ten to fifteen minutes,
- * anything new is on the first page, and Otodom holds around eighty pages of Kraków
- * rentals that we have no reason to walk through.
- */
+/** Newest first. Shallow: polling every 15 minutes, anything new is on page one. */
 export async function fetchOtodomList(options: FetchOtodomOptions = {}): Promise<OtodomListItem[]> {
   const { pages = 2 } = options;
   const collected: OtodomListItem[] = [];
@@ -98,11 +82,7 @@ export async function fetchOtodomList(options: FetchOtodomOptions = {}): Promise
   return collected;
 }
 
-/**
- * The listing page, fetched one at a time and only for listings that already passed the
- * district and price filters. It is the only place with the description, which is where
- * utilities are stated, and with the exact pin rather than a blurred circle.
- */
+/** The only place with the description and the exact pin. One request per listing. */
 export async function fetchOtodomAd(slug: string): Promise<OtodomAdResponse['pageProps']['ad']> {
   const response = await fetchData<OtodomAdResponse>(
     (buildId) => `/_next/data/${buildId}/pl/oferta/${slug}.json?id=${encodeURIComponent(slug)}`,
@@ -111,7 +91,7 @@ export async function fetchOtodomAd(slug: string): Promise<OtodomAdResponse['pag
   return response.pageProps.ad;
 }
 
-/** Exposed for tests, which must not inherit a build id from an earlier case. */
+/** For tests, which must not inherit a build id from an earlier case. */
 export function resetBuildIdCache(): void {
   cachedBuildId = null;
 }

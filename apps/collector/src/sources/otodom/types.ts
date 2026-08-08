@@ -1,9 +1,6 @@
 /**
- * Only the parts of the Otodom response we actually use.
- *
- * Otodom has no public API. What we read is the data endpoint Next.js exposes for its
- * own pages: the same payload the search page receives, without the HTML around it. The
- * `__typename` fields dotted through it are GraphQL leaking from the layer underneath.
+ * Only the parts of the Otodom response we use. There is no public API; this is the data
+ * endpoint Next.js serves its own pages from.
  */
 
 export interface OtodomMoney {
@@ -23,11 +20,7 @@ export interface OtodomAddress {
   city?: { name: string } | null;
 }
 
-/**
- * Otodom describes a location twice. `address` is the structured version and is often
- * incomplete; `reverseGeocoding.locations` is a path from province down to estate, where
- * the last entry is the most specific. The district is read from whichever has it.
- */
+/** A path from province down to estate. Used when `address` omits the district. */
 export interface OtodomReverseGeocoding {
   locations?: { id: string; fullName: string }[] | null;
 }
@@ -39,19 +32,19 @@ export interface OtodomLocation {
   coordinates?: { latitude: number; longitude: number } | null;
 }
 
-/** A listing as it appears in search results. No description and no coordinates here. */
+/** A search result. No description and no coordinates. */
 export interface OtodomListItem {
   id: number;
   slug: string;
   title: string;
-  /** The advertised rent. Otodom calls it "total" but the building fee is separate. */
+  /** The advertised rent, despite the name: the fee is quoted separately. */
   totalPrice: OtodomMoney | null;
   rentPrice: OtodomMoney | null;
   areaInSquareMeters: number | null;
   roomsNumber: string | null;
   floorNumber: string | null;
   isPrivateOwner: boolean | null;
-  /** When the listing first appeared, as opposed to when it was last edited. */
+  /** First appearance, as opposed to last edit. */
   createdAtFirst: string | null;
   dateCreated: string | null;
   pushedUpAt: string | null;
@@ -60,7 +53,7 @@ export interface OtodomListItem {
 
 export interface OtodomSearchResponse {
   pageProps: {
-    /** Present instead of `data` when Next.js answers with a redirect. */
+    /** Present instead of `data` on a redirect. */
     __N_REDIRECT?: string;
     data?: {
       searchAds?: {
@@ -71,7 +64,7 @@ export interface OtodomSearchResponse {
   };
 }
 
-/** The listing page, which is where the description and the exact pin live. */
+/** The listing page: description and exact pin. */
 export interface OtodomAdResponse {
   pageProps: {
     __N_REDIRECT?: string;
@@ -79,10 +72,10 @@ export interface OtodomAdResponse {
       id: number;
       slug: string;
       title: string;
-      /** HTML, written by whoever placed the ad. */
+      /** HTML, written by a stranger. */
       description: string | null;
       location: OtodomLocation;
-      /** Flat map of the advert parameters; rent and price arrive here as numbers. */
+      /** Flat map of advert parameters. */
       target?: Record<string, unknown> | null;
     };
   };

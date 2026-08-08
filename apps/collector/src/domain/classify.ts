@@ -4,54 +4,30 @@ import type { NormalizedOffer } from './offer.ts';
 
 export type Tier = 'top' | 'worth' | 'other';
 
-/**
- * How complete `totalCostPln` is:
- *
- * - `exact`      every part came from the listing
- * - `all_in`     the description says the advertised price covers everything
- * - `estimated`  the building fee was missing and has been assumed
- * - `uncertain`  no rent stated, so there is nothing to add up
- */
+/** How complete `totalCostPln` is: read, claimed all-in, assumed, or uncomputable. */
 export type CostCertainty = 'exact' | 'all_in' | 'estimated' | 'uncertain';
 
-/**
- * Bump this whenever the rules below change. Stored with every verdict, so it is always
- * possible to tell which listings were judged under the old criteria and recompute them.
- */
+/** Bump on any rule change below; stored with every verdict so old ones get recomputed. */
 export const RULES_VERSION = 3;
 
-/** Advertised rent alone, ignoring everything on top. */
+/** Advertised rent alone. */
 const WORTH_MAX_RENT_PLN = 2200;
-/** Rent plus building fee plus utilities: what actually leaves the account each month. */
+/** Rent plus building fee plus utilities. */
 const TOP_MAX_TOTAL_PLN = 2600;
-
-/**
- * What to assume when a listing gives no building fee. Roughly what a Kraków flat costs
- * in administration and metered utilities, so a silent listing is judged on a realistic
- * figure instead of being parked in a tier nobody reads. It is an assumption, and every
- * verdict that leans on it says so.
- */
+/** Assumed when a listing gives no fee. Roughly what a Kraków flat costs to run. */
 const ASSUMED_FEE_PLN = 400;
 
 export interface Classification {
   tier: Tier;
-  /**
-   * Rent plus building fee plus stated utilities, in whole PLN. Null only when the
-   * listing states no rent at all. Read it together with `costCertainty`.
-   */
+  /** Rent + fee + stated utilities. Null only when no rent is stated. */
   totalCostPln: number | null;
   costCertainty: CostCertainty;
   reasons: string[];
 }
 
 /**
- * Whether a listing could still reach a tier once its description is known, judged
- * without reading one. Sources that pay per request for the description ask this first.
- *
- * Two things a description can never rescue. An excluded district is absolute. And the
- * kindest reading of any listing is that the advertised rent is the whole cost, so a
- * rent above the all-in limit cannot reach `top`, while a rent above the lower limit
- * cannot reach `worth`; above both, the verdict is `other` whatever the prose says.
+ * Whether a description could still rescue this listing. Asked by sources that pay a
+ * request per description. Nothing rescues an excluded district or a rent over both limits.
  */
 export function mightQualify(offer: NormalizedOffer): boolean {
   if (isExcludedDistrict(offer.district)) return false;
@@ -59,11 +35,7 @@ export function mightQualify(offer: NormalizedOffer): boolean {
   return offer.pricePln <= Math.max(TOP_MAX_TOTAL_PLN, WORTH_MAX_RENT_PLN);
 }
 
-/**
- * Turns one listing into a verdict. Pure on purpose: no database, no network, no clock.
- * Every input is on the offer, so the whole thing is testable by handing it an object,
- * and rerunning it over stored rows costs nothing.
- */
+/** Turns one listing into a verdict. Pure: no database, no network, no clock. */
 export function classify(offer: NormalizedOffer): Classification {
   const stated = readDescriptionCosts(offer.description);
   const reasons: string[] = [];
@@ -103,12 +75,10 @@ export function classify(offer: NormalizedOffer): Classification {
   if (stated.utilitiesPln !== null) {
     reasons.push(`The description states utilities of ${stated.utilitiesPln} PLN.`);
   } else if (stated.mentionsUtilities && !stated.allIn) {
-    // Worth saying out loud: the total is a floor, and the flat may cost more.
     reasons.push('Utilities are mentioned without an amount and are not included above.');
   }
 
-  // The area rule comes first and is absolute: a cheap flat in the wrong district is
-  // still the wrong district.
+  // Absolute: a cheap flat in the wrong district is still the wrong district.
   if (isExcludedDistrict(offer.district)) {
     reasons.push(`${offer.district} is an excluded district.`);
     return { tier: 'other', totalCostPln, costCertainty, reasons };

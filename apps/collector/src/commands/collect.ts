@@ -2,15 +2,7 @@ import { collectOlx } from './collect-olx.ts';
 import { collectOtodom } from './collect-otodom.ts';
 import { classifyOffers } from './classify.ts';
 
-/**
- * One full round: both portals, then the verdicts. This is what the timer runs.
- *
- * A portal failing must not take the round down with it. OLX and Otodom break in
- * unrelated ways - an expired build id on one side says nothing about the other - and a
- * round that collected half the market and judged it is worth far more than no round at
- * all. Each failure is recorded in `fetch_runs` by the collector that hit it, so a portal
- * that has been failing quietly for days is visible rather than merely absent.
- */
+/** One full round: both portals, then the verdicts. */
 export async function collectAll(): Promise<void> {
   const failures: string[] = [];
 
@@ -27,13 +19,11 @@ export async function collectAll(): Promise<void> {
     }
   }
 
-  // Runs regardless: classification is local, and listings collected earlier still
-  // deserve a verdict even when today's fetch went badly.
+  // Local, so it runs even when fetching failed.
   classifyOffers();
 
+  // Non-zero exit, so a half-working round is not reported as a success.
   if (failures.length > 0) {
-    // A non-zero exit makes systemd mark the unit failed, so `systemctl --user status`
-    // shows the problem instead of a run that looks fine.
     throw new Error(`Collection failed for: ${failures.join(', ')}.`);
   }
 }

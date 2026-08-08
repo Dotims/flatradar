@@ -4,11 +4,7 @@ import { listOffersToClassify } from '../db/offers.ts';
 import { openDatabase } from '../db/open.ts';
 import { classify, RULES_VERSION, type Tier } from '../domain/classify.ts';
 
-/**
- * Judges every listing that has no current verdict. Purely local: it reads what the
- * collector already stored and touches no portal, so changing the criteria costs one
- * run of this command rather than another pass over OLX.
- */
+/** Judges every listing without a current verdict. Local: touches no portal. */
 export function classifyOffers(): Record<Tier, number> {
   const db = openDatabase();
   migrate(db);

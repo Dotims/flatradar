@@ -2,10 +2,8 @@ export type Tier = 'top' | 'worth' | 'other';
 export type CostCertainty = 'exact' | 'all_in' | 'estimated' | 'uncertain';
 
 /**
- * Mirrors `ClassifiedOffer` in the collector. Declared again rather than imported: the
- * two packages are compiled with different module settings, and a copied interface is a
- * cheaper price than wiring project references for one type. If it drifts, the reader
- * functions on the collector side throw before anything reaches here.
+ * Mirrors `ClassifiedOffer` in the collector. Copied rather than imported: the packages
+ * compile with different module settings. Drift throws on the collector side first.
  */
 export interface Offer {
   id: number;

@@ -4,9 +4,7 @@ import { migrate } from './db/migrate.ts';
 import { openDatabase } from './db/open.ts';
 
 const PORT = Number(process.env.FLATRADAR_PORT ?? 4317);
-/** Loopback only. This serves a personal flat search off a local database; it is not
- * meant to be reachable from anywhere else, and binding to all interfaces would put
- * scraped listings on the network by accident. */
+/** Loopback only: binding wider would put scraped listings on the network by accident. */
 const HOST = '127.0.0.1';
 
 function sendJson(response: ServerResponse, status: number, body: unknown): void {
@@ -14,7 +12,6 @@ function sendJson(response: ServerResponse, status: number, body: unknown): void
   response.writeHead(status, {
     'Content-Type': 'application/json; charset=utf-8',
     'Content-Length': Buffer.byteLength(payload),
-    // The dashboard should never show a stale price.
     'Cache-Control': 'no-store',
   });
   response.end(payload);
@@ -45,8 +42,7 @@ export function startServer(port: number = PORT): ReturnType<typeof createServer
           return;
       }
     } catch (error) {
-      // The browser gets a flat message; the detail stays in the terminal where the
-      // owner can see it.
+      // Detail stays in the terminal, not in the browser.
       console.error(error);
       sendJson(response, 500, { error: 'The query failed. See the collector output.' });
     }

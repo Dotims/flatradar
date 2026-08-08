@@ -15,7 +15,7 @@ export interface UpsertResult {
   priceChanged: boolean;
 }
 
-/** The little we need about a listing already in the database, to decide insert vs update. */
+/** Enough to decide insert vs update. */
 interface ExistingOffer {
   id: number;
   pricePln: number | null;
@@ -64,10 +64,7 @@ const INSERT_SQL = `
   )
 `;
 
-/**
- * Only the fields an advertiser can edit while the listing is live get updated.
- * first_seen_at is left alone, because it is our date, not the portal's.
- */
+/** Only what an advertiser can edit. first_seen_at is ours, not the portal's. */
 const UPDATE_SQL = `
   update offers set
     url = ?, title = ?, description = ?,
@@ -167,16 +164,12 @@ function insertPriceHistory(
   ).run(offerId, offer.pricePln, offer.rentPln, seenAt);
 }
 
-/** A listing read back out of the database, carrying the row id the rest of the schema uses. */
+/** A listing read back out, carrying its row id. */
 export interface StoredOffer extends NormalizedOffer {
   id: number;
 }
 
-/**
- * The schema constrains these columns, but the constraint lives in SQLite and the types
- * live here. Checking on the way out keeps the two honest with each other instead of
- * assuming they still agree.
- */
+// The check constraints live in SQLite, the types live here. Verify rather than assume.
 function toSource(value: string): OfferSource {
   if (value === 'olx' || value === 'otodom') return value;
   throw new Error(`Unknown offer source "${value}".`);
@@ -217,16 +210,12 @@ function toStoredOffer(row: DbRow): StoredOffer {
     status: toStatus(readString(row, 'status')),
     createdAtSource: readNullableString(row, 'created_at_source'),
     pushedUpAt: readNullableString(row, 'pushed_up_at'),
-    // The stored payload is not selected here. Classification reads none of it, and
-    // loading every raw response to compute a price would be pure waste.
+    // Not selected: classification reads none of it.
     raw: null,
   };
 }
 
-/**
- * Listings whose verdict is missing or was reached under older rules. Bumping
- * RULES_VERSION therefore reclassifies everything on the next run, with no refetching.
- */
+/** Listings with no verdict or an outdated one. Bumping RULES_VERSION reclassifies all. */
 export function listOffersToClassify(db: DatabaseSync, rulesVersion: number): StoredOffer[] {
   return db
     .prepare(

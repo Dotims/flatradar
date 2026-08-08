@@ -1,7 +1,4 @@
-/**
- * We identify honestly instead of pretending to be Chrome. Verified: both portals
- * answer this header with a normal 200, so there is no reason to disguise the client.
- */
+/** Honest, and verified to get a 200 from both portals. */
 export const USER_AGENT = 'FlatRadar/0.1 (+https://github.com/Dotims/flatradar)';
 
 const RETRY_DELAYS_MS = [1_000, 3_000, 9_000];
@@ -30,7 +27,7 @@ export interface FetchOptions {
   timeoutMs?: number;
 }
 
-/** Shared by every fetch here: honest headers, one timeout, retries only where useful. */
+/** Honest headers, one timeout, retries only where useful. */
 async function fetchText(url: string, options: FetchOptions = {}): Promise<string> {
   const { headers = {}, timeoutMs = 15_000 } = options;
   let lastError: unknown;
@@ -75,7 +72,7 @@ export async function fetchJson<T>(url: string, options: FetchOptions = {}): Pro
   return JSON.parse(body) as T;
 }
 
-/** For pages we read rather than call: Otodom hides its build id in the search HTML. */
+/** Otodom hides its build id in the search HTML. */
 export async function fetchHtml(url: string, options: FetchOptions = {}): Promise<string> {
   return fetchText(url, {
     ...options,

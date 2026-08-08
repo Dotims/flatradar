@@ -8,13 +8,10 @@ import { sleep } from '../sources/http.ts';
 import { fetchOtodomAd, fetchOtodomList } from '../sources/otodom/client.ts';
 import { parseOtodomOffer } from '../sources/otodom/parse.ts';
 
-/** Between listing page requests, which are the ones we make several of. */
+/** Between listing page requests. */
 const DETAIL_DELAY_MS = 1_000;
 
-/**
- * A ceiling on listing pages per run, so a bad filter or a sudden flood of cheap flats
- * cannot turn one poll into hundreds of requests at somebody else's expense.
- */
+/** So a bad filter cannot turn one poll into hundreds of requests. */
 const MAX_DETAILS_PER_RUN = 25;
 
 export async function collectOtodom(pages = 2): Promise<void> {
@@ -31,9 +28,7 @@ export async function collectOtodom(pages = 2): Promise<void> {
     const items = await fetchOtodomList({ pages });
     seen = items.length;
 
-    // The search results carry no description and no coordinates. Both need a request
-    // per listing, so they are only fetched for listings that could still qualify:
-    // usually a handful, against seventy-odd on the pages.
+    // Descriptions and coordinates cost a request each, so only survivors get one.
     const offers: NormalizedOffer[] = [];
 
     for (const item of items) {

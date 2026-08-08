@@ -22,11 +22,7 @@ const SAVE_SQL = `
     classified_at  = excluded.classified_at
 `;
 
-/**
- * One verdict per listing, replaced whenever the rules change. There is no history here
- * on purpose: an old verdict under old thresholds is not worth keeping, and the facts it
- * was derived from are all still in `offers`.
- */
+/** One verdict per listing, replaced when the rules change. No history: `offers` has the facts. */
 export function saveClassification(
   db: DatabaseSync,
   offerId: number,
@@ -39,19 +35,14 @@ export function saveClassification(
     classification.tier,
     classification.totalCostPln,
     classification.costCertainty,
-    // Stored as JSON so the dashboard can list the reasons separately rather than
-    // splitting a sentence back apart.
+    // JSON, so the dashboard lists reasons rather than splitting a sentence apart.
     JSON.stringify(classification.reasons),
     rulesVersion,
     classifiedAt,
   );
 }
 
-/**
- * One listing as the dashboard needs it: the portal facts and our verdict, already
- * joined. Deliberately without the description, which is HTML written by a stranger and
- * has no business travelling to a browser until something is responsible for escaping it.
- */
+/** Facts and verdict, joined. No description: it is HTML written by a stranger. */
 export interface ClassifiedOffer {
   id: number;
   source: string;
@@ -120,11 +111,7 @@ function toClassifiedOffer(row: DbRow): ClassifiedOffer {
   };
 }
 
-/**
- * Everything the dashboard can show, cheapest first. Filtering happens in the browser:
- * the whole set is a few hundred rows, so sending it once beats a round trip per slider
- * move, and the filters stay instant.
- */
+/** Everything the dashboard shows. A few hundred rows, so it is sent once and filtered there. */
 export function listClassifiedOffers(db: DatabaseSync): ClassifiedOffer[] {
   return db
     .prepare(
@@ -135,8 +122,7 @@ export function listClassifiedOffers(db: DatabaseSync): ClassifiedOffer[] {
        from classifications c
        join offers o on o.id = c.offer_id
        where o.status = 'active'
-       -- Tier first, then price. Sorting on price alone put a cheap listing whose real
-       -- cost is unknown above a pricier one that actually fits the budget.
+       -- Tier first: on price alone, a cheap unknown outranks a pricier listing that fits.
        order by case c.tier when 'top' then 0 when 'worth' then 1 else 2 end,
                 c.total_cost_pln`,
     )

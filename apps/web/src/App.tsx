@@ -4,18 +4,14 @@ import type { Offer, Tier } from './types.ts';
 
 const TIERS: Tier[] = ['top', 'worth', 'other'];
 
-/**
- * `top`, `worth` and `other` are names for the code, not for a person reading a table.
- * Each label carries the rule that produced it, so the panel never has to be explained
- * twice: short text for the column, the whole rule on hover and next to the checkbox.
- */
+/** top/worth/other are names for the code. Each label carries the rule behind it. */
 const TIER_LABEL: Record<Tier, { short: string; rule: string }> = {
   top: { short: 'W budżecie', rule: 'całość (najem + czynsz + media) do 2600 zł' },
   worth: { short: 'Tani najem', rule: 'sam najem do 2200 zł, ale całość wychodzi drożej' },
   other: { short: 'Odpada', rule: 'zła dzielnica albo za drogo' },
 };
 
-/** What the certainty of a total means, in the language the owner reads the panel in. */
+/** Certainty, in the language the panel is read in. */
 const CERTAINTY_LABEL: Record<string, string> = {
   exact: 'z ogłoszenia',
   all_in: 'wszystko w cenie',
@@ -61,9 +57,7 @@ export function App() {
         <p>
           <strong>Panel nie ma skąd wziąć danych.</strong>
         </p>
-        {/* The dev server proxies /api and answers 500 when nothing is listening on the
-            other end. That reads as a broken API when the API is simply not running,
-            which is the usual cause, so it is named first. */}
+        {/* Vite answers 500 when nothing is listening behind the proxy. */}
         <p>Najczęstsza przyczyna: nie działa API. Uruchom je w drugim terminalu:</p>
         <pre>pnpm serve</pre>
         <p>
@@ -194,8 +188,7 @@ export function App() {
                 {offer.isPrivateOwner === null ? '-' : offer.isPrivateOwner ? 'prywatne' : 'firma'}
               </td>
               <td>
-                {/* rel keeps the portal from seeing where the click came from, and
-                    React escapes the title, which is text written by a stranger. */}
+                {/* React escapes the title, which is written by a stranger. */}
                 <a href={offer.url} target="_blank" rel="noreferrer noopener">
                   {offer.title}
                 </a>

@@ -3,7 +3,7 @@ import type { OtodomAdResponse, OtodomListItem, OtodomLocation } from './types.t
 
 type OtodomAd = NonNullable<OtodomAdResponse['pageProps']['ad']>;
 
-/** Otodom names the room count instead of counting it, and stops being exact at ten. */
+/** Otodom names the room count instead of counting it. */
 const ROOMS_BY_NAME: Record<string, number> = {
   ONE: 1,
   TWO: 2,
@@ -17,11 +17,7 @@ const ROOMS_BY_NAME: Record<string, number> = {
   TEN: 10,
 };
 
-/**
- * A district sits at the fifth level of the reverse geocoding path:
- * `malopolskie/krakow/krakow/krakow/pradnik-czerwony`. Anything shorter is the city or
- * the province, anything longer is an estate inside the district.
- */
+// A district is the fifth level: malopolskie/krakow/krakow/krakow/pradnik-czerwony.
 const DISTRICT_DEPTH = 5;
 
 function districtFromGeocoding(location: OtodomLocation): string | null {
@@ -37,7 +33,7 @@ function districtFromGeocoding(location: OtodomLocation): string | null {
   return null;
 }
 
-/** The structured address is the better source when present, and often is not. */
+/** The structured address wins when present, which it often is not. */
 function readDistrict(location: OtodomLocation): string | null {
   return location.address?.district?.name ?? districtFromGeocoding(location);
 }
@@ -53,12 +49,7 @@ function toWholePln(money: { value: number } | null | undefined): number | null 
   return Math.round(money.value);
 }
 
-/**
- * A listing, from the search results and optionally from its own page. The detail is
- * separate because it costs an extra request each, so it is only fetched for listings
- * that survived the cheap filters. Without it there is no description and no exact pin,
- * which the nulls below record honestly rather than papering over.
- */
+/** The detail is optional: it costs a request, so only survivors of the filters have one. */
 export function parseOtodomOffer(item: OtodomListItem, ad?: OtodomAd): NormalizedOffer {
   const coordinates = ad?.location.coordinates ?? null;
   const radius = ad?.location.mapDetails?.radius ?? item.location.mapDetails?.radius ?? null;
@@ -70,8 +61,6 @@ export function parseOtodomOffer(item: OtodomListItem, ad?: OtodomAd): Normalize
     title: item.title,
     description: ad?.description ?? null,
 
-    // Otodom calls the advertised rent "totalPrice" even though the building fee is
-    // quoted separately, so the naming here follows what the numbers mean, not its label.
     pricePln: toWholePln(item.totalPrice),
     rentPln: toWholePln(item.rentPrice),
     depositPln: null,
@@ -86,15 +75,13 @@ export function parseOtodomOffer(item: OtodomListItem, ad?: OtodomAd): Normalize
     street: item.location.address?.street?.name ?? null,
     lat: coordinates?.latitude ?? null,
     lng: coordinates?.longitude ?? null,
-    // Otodom gives a real pin rather than the blurred circle OLX reports, but only on
-    // the listing page. Precision stays unknown until that page has been read.
+    // Unknown until the listing page has been read.
     coordsPrecision: coordinates === null ? null : radius === 0 ? 'exact' : 'approximate',
 
     isPrivateOwner: item.isPrivateOwner,
     status: 'active',
 
-    // createdAtFirst is when the listing first appeared; dateCreated moves when the
-    // advertiser edits it, so it would make an old flat look new.
+    // dateCreated moves on every edit, which would make an old flat look new.
     createdAtSource: toIsoOrNull(item.createdAtFirst ?? item.dateCreated),
     pushedUpAt: toIsoOrNull(item.pushedUpAt),
 

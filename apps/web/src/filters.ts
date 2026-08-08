@@ -21,11 +21,8 @@ export const DEFAULT_FILTERS: Filters = {
 export const NO_DISTRICT = '(brak dzielnicy)';
 
 /**
- * Kept out of the component and free of React on purpose: this is the only part of the
- * dashboard with rules in it, so it should be readable and testable on its own.
- *
- * A listing missing the value a filter asks about is kept rather than dropped. Half the
- * portal fields are optional, and silently hiding those would quietly shrink the search.
+ * Free of React so it can be tested directly. A listing missing the value a filter asks
+ * about is kept: half the portal fields are optional.
  */
 export function applyFilters(offers: Offer[], filters: Filters): Offer[] {
   return offers.filter((offer) => {
@@ -43,7 +40,7 @@ export function applyFilters(offers: Offer[], filters: Filters): Offer[] {
   });
 }
 
-/** Every district present in the data, so the panel never offers an empty choice. */
+/** Only districts present in the data. */
 export function availableDistricts(offers: Offer[]): string[] {
   const seen = new Set(offers.map((offer) => offer.district ?? NO_DISTRICT));
   return [...seen].sort((a, b) => a.localeCompare(b, 'pl'));

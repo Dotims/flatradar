@@ -4,12 +4,8 @@ export type OfferSource = 'olx' | 'otodom';
 export type CoordsPrecision = 'exact' | 'approximate';
 
 /**
- * The shape every listing is reduced to, whichever portal it came from. OLX and Otodom
- * return completely different structures; everything downstream (classifier, database,
- * dashboard) sees only this.
- *
- * Fields are `| null` rather than optional, because "the portal did not say" is itself
- * information worth storing instead of quietly dropping.
+ * The shape every listing is reduced to, whichever portal it came from. Fields are
+ * `| null` rather than optional: "the portal did not say" is worth storing.
  */
 export interface NormalizedOffer {
   source: OfferSource;

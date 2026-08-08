@@ -18,8 +18,7 @@ export async function collectOlx(pages = 2): Promise<void> {
     const offers = await fetchOlxOffers({ pages });
     seen = offers.length;
 
-    // One transaction for the whole batch: it lands complete or not at all,
-    // and it is far faster than committing after every row.
+    // One transaction: lands whole or not at all, and far faster than row by row.
     db.exec('begin');
     try {
       for (const raw of offers) {
