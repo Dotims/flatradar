@@ -11,6 +11,7 @@ const EXCLUDED_DISTRICTS = [
   'Czyżyny',
   'Grzegórzki',
   'Krowodrza',
+  'Mistrzejowice',
   'Prądnik Biały',
   'Prądnik Czerwony',
   'Stare Miasto',

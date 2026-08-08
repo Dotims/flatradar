@@ -51,6 +51,18 @@ pnpm --filter @flatradar/collector classify     # judges what is stored, no netw
 pnpm --filter @flatradar/collector status       # prints what is in the database
 ```
 
+The dashboard needs two terminals: the API reads the database, the dev server serves the
+page and proxies `/api` to it.
+
+```bash
+pnpm --filter @flatradar/collector serve   # http://127.0.0.1:4317
+pnpm --filter @flatradar/web dev           # http://localhost:4318
+```
+
+Filters live in the browser: full monthly cost, minimum floor area, tier, district and
+private advertisers only. The whole set is a few hundred rows, so it is sent once and
+filtered in memory rather than queried per keystroke.
+
 Quality gate before committing:
 
 ```bash
@@ -60,8 +72,12 @@ pnpm check   # prettier + eslint + tsc + tests
 ## Layout
 
 ```
-apps/collector/       fetching, normalising, classifying, notifying
-  src/db/             schema and migrations
+apps/collector/       fetching, normalising, classifying, serving the API
+  src/sources/        one folder per portal, each producing a NormalizedOffer
+  src/domain/         the rules: districts, costs, tiers. No database, no network.
+  src/db/             schema, migrations and checked row readers
+  src/commands/       what the pnpm scripts run
+apps/web/             the dashboard
 ```
 
 ## License

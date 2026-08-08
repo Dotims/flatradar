@@ -18,7 +18,7 @@ export type CostCertainty = 'exact' | 'all_in' | 'estimated' | 'uncertain';
  * Bump this whenever the rules below change. Stored with every verdict, so it is always
  * possible to tell which listings were judged under the old criteria and recompute them.
  */
-export const RULES_VERSION = 2;
+export const RULES_VERSION = 3;
 
 /** Advertised rent alone, ignoring everything on top. */
 const WORTH_MAX_RENT_PLN = 2200;

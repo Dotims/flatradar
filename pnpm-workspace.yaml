@@ -1,2 +1,7 @@
 packages:
   - apps/*
+# pnpm blocks dependency install scripts until each one is allowed by name. esbuild is
+# the only one this project needs: Vite depends on it, and its script links the prebuilt
+# binary for the current platform.
+allowBuilds:
+  esbuild: true
