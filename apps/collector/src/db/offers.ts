@@ -1,7 +1,8 @@
-import type { DatabaseSync } from 'node:sqlite';
 import type { CoordsPrecision, NormalizedOffer, OfferSource } from '../domain/offer.ts';
+import type { Queryable } from './client.ts';
 import {
   readNullableBoolean,
+  readNullableIso,
   readNullableNumber,
   readNullableString,
   readNumber,
@@ -22,14 +23,15 @@ interface ExistingOffer {
   rentPln: number | null;
 }
 
-function findExisting(
-  db: DatabaseSync,
+async function findExisting(
+  sql: Queryable,
   source: string,
   sourceId: string,
-): ExistingOffer | undefined {
-  const row = db
-    .prepare('select id, price_pln, rent_pln from offers where source = ? and source_id = ?')
-    .get(source, sourceId);
+): Promise<ExistingOffer | undefined> {
+  const [row] = await sql<DbRow[]>`
+    select id, price_pln, rent_pln from offers
+    where source = ${source} and source_id = ${sourceId}
+  `;
 
   if (row === undefined) return undefined;
 
@@ -40,128 +42,73 @@ function findExisting(
   };
 }
 
-/** SQLite has no boolean type; it stores 0 and 1. */
-function toDbBoolean(value: boolean | null): number | null {
-  if (value === null) return null;
-  return value ? 1 : 0;
-}
-
-const INSERT_SQL = `
-  insert into offers (
-    source, source_id, url, title, description,
-    price_pln, rent_pln, deposit_pln,
-    area_m2, rooms, floor,
-    city, district, subdistrict, street, lat, lng, coords_precision,
-    is_private_owner, status,
-    created_at_source, pushed_up_at, first_seen_at, last_seen_at, raw
-  ) values (
-    ?, ?, ?, ?, ?,
-    ?, ?, ?,
-    ?, ?, ?,
-    ?, ?, ?, ?, ?, ?, ?,
-    ?, ?,
-    ?, ?, ?, ?, ?
-  )
-`;
-
-/** Only what an advertiser can edit. first_seen_at is ours, not the portal's. */
-const UPDATE_SQL = `
-  update offers set
-    url = ?, title = ?, description = ?,
-    price_pln = ?, rent_pln = ?, deposit_pln = ?,
-    area_m2 = ?, rooms = ?, floor = ?,
-    district = ?, subdistrict = ?, street = ?, lat = ?, lng = ?, coords_precision = ?,
-    is_private_owner = ?, status = ?,
-    pushed_up_at = ?, last_seen_at = ?, raw = ?
-  where id = ?
-`;
-
-export function upsertOffer(
-  db: DatabaseSync,
+export async function upsertOffer(
+  sql: Queryable,
   offer: NormalizedOffer,
   now: string = new Date().toISOString(),
-): UpsertResult {
-  const existing = findExisting(db, offer.source, offer.sourceId);
+): Promise<UpsertResult> {
+  const existing = await findExisting(sql, offer.source, offer.sourceId);
   const raw = JSON.stringify(offer.raw);
 
   if (existing === undefined) {
-    const result = db
-      .prepare(INSERT_SQL)
-      .run(
-        offer.source,
-        offer.sourceId,
-        offer.url,
-        offer.title,
-        offer.description,
-        offer.pricePln,
-        offer.rentPln,
-        offer.depositPln,
-        offer.areaM2,
-        offer.rooms,
-        offer.floor,
-        offer.city,
-        offer.district,
-        offer.subdistrict,
-        offer.street,
-        offer.lat,
-        offer.lng,
-        offer.coordsPrecision,
-        toDbBoolean(offer.isPrivateOwner),
-        offer.status,
-        offer.createdAtSource,
-        offer.pushedUpAt,
-        now,
-        now,
-        raw,
-      );
+    const [row] = await sql<DbRow[]>`
+      insert into offers (
+        source, source_id, url, title, description,
+        price_pln, rent_pln, deposit_pln,
+        area_m2, rooms, floor,
+        city, district, subdistrict, street, lat, lng, coords_precision,
+        is_private_owner, status,
+        created_at_source, pushed_up_at, first_seen_at, last_seen_at, raw
+      ) values (
+        ${offer.source}, ${offer.sourceId}, ${offer.url}, ${offer.title}, ${offer.description},
+        ${offer.pricePln}, ${offer.rentPln}, ${offer.depositPln},
+        ${offer.areaM2}, ${offer.rooms}, ${offer.floor},
+        ${offer.city}, ${offer.district}, ${offer.subdistrict}, ${offer.street},
+        ${offer.lat}, ${offer.lng}, ${offer.coordsPrecision},
+        ${offer.isPrivateOwner}, ${offer.status},
+        ${offer.createdAtSource}, ${offer.pushedUpAt}, ${now}, ${now}, ${raw}
+      )
+      returning id
+    `;
 
-    const offerId = Number(result.lastInsertRowid);
-    insertPriceHistory(db, offerId, offer, now);
+    if (row === undefined) throw new Error('The insert returned no id.');
+    const offerId = readNumber(row, 'id');
+    await insertPriceHistory(sql, offerId, offer, now);
     return { offerId, isNew: true, priceChanged: false };
   }
 
-  db.prepare(UPDATE_SQL).run(
-    offer.url,
-    offer.title,
-    offer.description,
-    offer.pricePln,
-    offer.rentPln,
-    offer.depositPln,
-    offer.areaM2,
-    offer.rooms,
-    offer.floor,
-    offer.district,
-    offer.subdistrict,
-    offer.street,
-    offer.lat,
-    offer.lng,
-    offer.coordsPrecision,
-    toDbBoolean(offer.isPrivateOwner),
-    offer.status,
-    offer.pushedUpAt,
-    now,
-    raw,
-    existing.id,
-  );
+  // Only what an advertiser can edit. first_seen_at is ours, not the portal's.
+  await sql`
+    update offers set
+      url = ${offer.url}, title = ${offer.title}, description = ${offer.description},
+      price_pln = ${offer.pricePln}, rent_pln = ${offer.rentPln},
+      deposit_pln = ${offer.depositPln},
+      area_m2 = ${offer.areaM2}, rooms = ${offer.rooms}, floor = ${offer.floor},
+      district = ${offer.district}, subdistrict = ${offer.subdistrict}, street = ${offer.street},
+      lat = ${offer.lat}, lng = ${offer.lng}, coords_precision = ${offer.coordsPrecision},
+      is_private_owner = ${offer.isPrivateOwner}, status = ${offer.status},
+      pushed_up_at = ${offer.pushedUpAt}, last_seen_at = ${now}, raw = ${raw}
+    where id = ${existing.id}
+  `;
 
   const priceChanged = existing.pricePln !== offer.pricePln || existing.rentPln !== offer.rentPln;
-
   if (priceChanged) {
-    insertPriceHistory(db, existing.id, offer, now);
+    await insertPriceHistory(sql, existing.id, offer, now);
   }
 
   return { offerId: existing.id, isNew: false, priceChanged };
 }
 
-function insertPriceHistory(
-  db: DatabaseSync,
+async function insertPriceHistory(
+  sql: Queryable,
   offerId: number,
   offer: NormalizedOffer,
   seenAt: string,
-): void {
-  db.prepare(
-    'insert into price_history (offer_id, price_pln, rent_pln, seen_at) values (?, ?, ?, ?)',
-  ).run(offerId, offer.pricePln, offer.rentPln, seenAt);
+): Promise<void> {
+  await sql`
+    insert into price_history (offer_id, price_pln, rent_pln, seen_at)
+    values (${offerId}, ${offer.pricePln}, ${offer.rentPln}, ${seenAt})
+  `;
 }
 
 /** A listing read back out, carrying its row id. */
@@ -169,7 +116,7 @@ export interface StoredOffer extends NormalizedOffer {
   id: number;
 }
 
-// The check constraints live in SQLite, the types live here. Verify rather than assume.
+// The check constraints live in Postgres, the types live here. Verify rather than assume.
 function toSource(value: string): OfferSource {
   if (value === 'olx' || value === 'otodom') return value;
   throw new Error(`Unknown offer source "${value}".`);
@@ -208,26 +155,28 @@ function toStoredOffer(row: DbRow): StoredOffer {
     coordsPrecision: toCoordsPrecision(readNullableString(row, 'coords_precision')),
     isPrivateOwner: readNullableBoolean(row, 'is_private_owner'),
     status: toStatus(readString(row, 'status')),
-    createdAtSource: readNullableString(row, 'created_at_source'),
-    pushedUpAt: readNullableString(row, 'pushed_up_at'),
+    createdAtSource: readNullableIso(row, 'created_at_source'),
+    pushedUpAt: readNullableIso(row, 'pushed_up_at'),
     // Not selected: classification reads none of it.
     raw: null,
   };
 }
 
 /** Listings with no verdict or an outdated one. Bumping RULES_VERSION reclassifies all. */
-export function listOffersToClassify(db: DatabaseSync, rulesVersion: number): StoredOffer[] {
-  return db
-    .prepare(
-      `select o.id, o.source, o.source_id, o.url, o.title, o.description,
-              o.price_pln, o.rent_pln, o.deposit_pln, o.area_m2, o.rooms, o.floor,
-              o.city, o.district, o.subdistrict, o.street, o.lat, o.lng, o.coords_precision,
-              o.is_private_owner, o.status, o.created_at_source, o.pushed_up_at
-       from offers o
-       left join classifications c on c.offer_id = o.id
-       where c.offer_id is null or c.rules_version <> ?
-       order by o.id`,
-    )
-    .all(rulesVersion)
-    .map(toStoredOffer);
+export async function listOffersToClassify(
+  sql: Queryable,
+  rulesVersion: number,
+): Promise<StoredOffer[]> {
+  const rows = await sql<DbRow[]>`
+    select o.id, o.source, o.source_id, o.url, o.title, o.description,
+           o.price_pln, o.rent_pln, o.deposit_pln, o.area_m2, o.rooms, o.floor,
+           o.city, o.district, o.subdistrict, o.street, o.lat, o.lng, o.coords_precision,
+           o.is_private_owner, o.status, o.created_at_source, o.pushed_up_at
+    from offers o
+    left join classifications c on c.offer_id = o.id
+    where c.offer_id is null or c.rules_version <> ${rulesVersion}
+    order by o.id
+  `;
+
+  return rows.map(toStoredOffer);
 }

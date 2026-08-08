@@ -1,5 +1,6 @@
-import type { DatabaseSync } from 'node:sqlite';
+import type { Queryable } from './client.ts';
 import type { OfferSource } from '../domain/offer.ts';
+import { readNumber, type DbRow } from './rows.ts';
 
 export interface RunSummary {
   itemsSeen: number;
@@ -7,24 +8,21 @@ export interface RunSummary {
   error?: string;
 }
 
-export function startRun(db: DatabaseSync, source: OfferSource): number {
-  const result = db
-    .prepare('insert into fetch_runs (source, started_at) values (?, ?)')
-    .run(source, new Date().toISOString());
-  return Number(result.lastInsertRowid);
+export async function startRun(sql: Queryable, source: OfferSource): Promise<number> {
+  const [row] = await sql<DbRow[]>`
+    insert into fetch_runs (source, started_at) values (${source}, now()) returning id
+  `;
+
+  if (row === undefined) throw new Error('The insert returned no run id.');
+  return readNumber(row, 'id');
 }
 
-export function finishRun(db: DatabaseSync, runId: number, summary: RunSummary): void {
-  db.prepare(
-    `update fetch_runs
-     set finished_at = ?, ok = ?, items_seen = ?, items_new = ?, error = ?
-     where id = ?`,
-  ).run(
-    new Date().toISOString(),
-    summary.error === undefined ? 1 : 0,
-    summary.itemsSeen,
-    summary.itemsNew,
-    summary.error ?? null,
-    runId,
-  );
+export async function finishRun(sql: Queryable, runId: number, summary: RunSummary): Promise<void> {
+  await sql`
+    update fetch_runs
+    set finished_at = now(), ok = ${summary.error === undefined},
+        items_seen = ${summary.itemsSeen}, items_new = ${summary.itemsNew},
+        error = ${summary.error ?? null}
+    where id = ${runId}
+  `;
 }

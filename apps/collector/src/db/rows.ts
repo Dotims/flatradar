@@ -1,38 +1,34 @@
-import type { SQLOutputValue } from 'node:sqlite';
-
 /**
- * node:sqlite returns loosely typed rows. An `as` cast on one proves nothing; these
- * readers check, and name the offending column when they fail.
+ * postgres returns loosely typed rows. Annotating a query with a row type is an
+ * assertion, not a check; these readers check, and name the offending column on failure.
  */
-export type DbRow = Record<string, SQLOutputValue>;
+export type DbRow = Record<string, unknown>;
 
-function read(row: DbRow, column: string): SQLOutputValue {
-  const value = row[column];
-  // SQLOutputValue covers null, so undefined means the column is absent.
-  if (value === undefined) {
+function read(row: DbRow, column: string): unknown {
+  if (!(column in row)) {
     throw new Error(`Column "${column}" is missing from the query result.`);
   }
-  return value;
+  return row[column];
 }
 
-function describe(value: SQLOutputValue): string {
+function describe(value: unknown): string {
   return value === null ? 'null' : typeof value;
 }
 
 export function readNullableNumber(row: DbRow, column: string): number | null {
   const value = read(row, column);
   if (value === null) return null;
-  // count(*) and lastInsertRowid come back as bigint.
-  if (typeof value === 'bigint') return Number(value);
+  // count(*) and other bigint results arrive as strings, to keep 64-bit precision.
+  if (typeof value === 'string' && value.trim() !== '' && Number.isFinite(Number(value))) {
+    return Number(value);
+  }
   if (typeof value === 'number') return value;
   throw new Error(`Column "${column}" holds ${describe(value)}, expected a number.`);
 }
 
 export function readNumber(row: DbRow, column: string): number {
   const value = readNullableNumber(row, column);
-  if (value === null) {
-    throw new Error(`Column "${column}" is null, expected a number.`);
-  }
+  if (value === null) throw new Error(`Column "${column}" is null, expected a number.`);
   return value;
 }
 
@@ -45,14 +41,36 @@ export function readNullableString(row: DbRow, column: string): string | null {
 
 export function readString(row: DbRow, column: string): string {
   const value = readNullableString(row, column);
-  if (value === null) {
-    throw new Error(`Column "${column}" is null, expected a string.`);
-  }
+  if (value === null) throw new Error(`Column "${column}" is null, expected a string.`);
   return value;
 }
 
-/** SQLite has no boolean type. */
 export function readNullableBoolean(row: DbRow, column: string): boolean | null {
-  const value = readNullableNumber(row, column);
-  return value === null ? null : value !== 0;
+  const value = read(row, column);
+  if (value === null || typeof value === 'boolean') return value;
+  throw new Error(`Column "${column}" holds ${describe(value)}, expected a boolean.`);
+}
+
+/** timestamptz arrives as a Date; the rest of the code passes ISO strings around. */
+export function readNullableIso(row: DbRow, column: string): string | null {
+  const value = read(row, column);
+  if (value === null) return null;
+  if (value instanceof Date) return value.toISOString();
+  if (typeof value === 'string') return new Date(value).toISOString();
+  throw new Error(`Column "${column}" holds ${describe(value)}, expected a timestamp.`);
+}
+
+export function readIso(row: DbRow, column: string): string {
+  const value = readNullableIso(row, column);
+  if (value === null) throw new Error(`Column "${column}" is null, expected a timestamp.`);
+  return value;
+}
+
+/** jsonb comes back already parsed. */
+export function readStringArray(row: DbRow, column: string): string[] {
+  const value = read(row, column);
+  if (!Array.isArray(value) || value.some((item) => typeof item !== 'string')) {
+    throw new Error(`Column "${column}" does not hold a list of strings.`);
+  }
+  return value as string[];
 }

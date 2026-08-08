@@ -1,112 +1,111 @@
-import { strictEqual } from 'node:assert/strict';
-import { test } from 'node:test';
-import type { DatabaseSync } from 'node:sqlite';
-import type { NormalizedOffer } from '../domain/offer.ts';
+import assert from 'node:assert/strict';
+import { after, before, beforeEach, describe, test } from 'node:test';
+import { openDatabase, type Sql } from './client.ts';
 import { migrate } from './migrate.ts';
-import { openDatabase } from './open.ts';
 import { upsertOffer } from './offers.ts';
+import type { NormalizedOffer } from '../domain/offer.ts';
 
-function freshDatabase(): DatabaseSync {
-  const db = openDatabase(':memory:');
-  migrate(db);
-  return db;
-}
+/**
+ * Needs a throwaway Postgres. CI provides one; locally these are skipped unless
+ * TEST_DATABASE_URL is set. Never point it at the database holding real listings:
+ * every case starts by emptying the tables.
+ */
+const TEST_URL = process.env.TEST_DATABASE_URL;
 
-function sampleOffer(overrides: Partial<NormalizedOffer> = {}): NormalizedOffer {
+function offer(overrides: Partial<NormalizedOffer> = {}): NormalizedOffer {
   return {
     source: 'olx',
-    sourceId: '123',
-    url: 'https://www.olx.pl/d/oferta/test',
-    title: 'Test studio',
-    description: 'description',
+    sourceId: '1',
+    url: 'https://www.olx.pl/d/oferta/1',
+    title: 'Mieszkanie',
+    description: null,
     pricePln: 2000,
-    rentPln: 400,
+    rentPln: 300,
     depositPln: null,
-    areaM2: 30,
-    rooms: 1,
-    floor: '2',
+    areaM2: 35,
+    rooms: 2,
+    floor: null,
     city: 'Kraków',
     district: 'Podgórze',
     subdistrict: null,
     street: null,
-    lat: 50.05,
-    lng: 19.94,
-    coordsPrecision: 'approximate',
+    lat: null,
+    lng: null,
+    coordsPrecision: null,
     isPrivateOwner: true,
     status: 'active',
-    createdAtSource: '2026-08-08T00:00:00.000Z',
+    createdAtSource: '2026-08-01T10:00:00.000Z',
     pushedUpAt: null,
-    raw: { id: 123 },
+    raw: { id: 1 },
     ...overrides,
   };
 }
 
-function countRows(db: DatabaseSync, table: string): number {
-  const row = db.prepare(`select count(*) as total from ${table}`).get();
-  return Number(row?.total ?? 0);
-}
+describe(
+  'upsertOffer',
+  { skip: TEST_URL === undefined ? 'TEST_DATABASE_URL is not set' : false },
+  () => {
+    let sql: Sql;
 
-test('the same listing seen twice does not create a duplicate', () => {
-  const db = freshDatabase();
+    before(async () => {
+      sql = openDatabase(TEST_URL ?? '');
+      await migrate(sql);
+    });
 
-  const first = upsertOffer(db, sampleOffer());
-  const second = upsertOffer(db, sampleOffer());
+    beforeEach(async () => {
+      await sql`truncate offers restart identity cascade`;
+    });
 
-  strictEqual(first.isNew, true);
-  strictEqual(second.isNew, false);
-  strictEqual(second.offerId, first.offerId);
-  strictEqual(countRows(db, 'offers'), 1);
+    after(async () => {
+      await sql.end();
+    });
 
-  db.close();
-});
+    test('seeing the same listing twice does not duplicate it', async () => {
+      const first = await upsertOffer(sql, offer());
+      const second = await upsertOffer(sql, offer());
 
-test('the first sighting records a price history entry', () => {
-  const db = freshDatabase();
+      assert.equal(first.isNew, true);
+      assert.equal(second.isNew, false);
+      assert.equal(second.offerId, first.offerId);
 
-  upsertOffer(db, sampleOffer());
+      const [row] = await sql`select count(*) as total from offers`;
+      assert.equal(Number(row?.total), 1);
+    });
 
-  strictEqual(countRows(db, 'price_history'), 1);
+    test('the first sighting records a price history entry', async () => {
+      await upsertOffer(sql, offer());
+      const [row] = await sql`select count(*) as total from price_history`;
+      assert.equal(Number(row?.total), 1);
+    });
 
-  db.close();
-});
+    test('a changed building fee appends to the price history, an unchanged one does not', async () => {
+      await upsertOffer(sql, offer());
+      const same = await upsertOffer(sql, offer());
+      assert.equal(same.priceChanged, false);
 
-test('a changed building fee appends to the price history, an unchanged one does not', () => {
-  const db = freshDatabase();
+      const changed = await upsertOffer(sql, offer({ rentPln: 450 }));
+      assert.equal(changed.priceChanged, true);
 
-  upsertOffer(db, sampleOffer());
-  const unchanged = upsertOffer(db, sampleOffer());
-  strictEqual(unchanged.priceChanged, false);
-  strictEqual(countRows(db, 'price_history'), 1);
+      const [row] = await sql`select count(*) as total from price_history`;
+      assert.equal(Number(row?.total), 2);
+    });
 
-  const changed = upsertOffer(db, sampleOffer({ rentPln: 550 }));
-  strictEqual(changed.priceChanged, true);
-  strictEqual(countRows(db, 'price_history'), 2);
+    test('an update leaves the first-seen date alone', async () => {
+      await upsertOffer(sql, offer(), '2026-08-01T00:00:00.000Z');
+      await upsertOffer(sql, offer({ title: 'Nowy tytuł' }), '2026-08-05T00:00:00.000Z');
 
-  db.close();
-});
+      const [row] = await sql`select first_seen_at, last_seen_at, title from offers`;
+      assert.equal((row?.first_seen_at as Date).toISOString(), '2026-08-01T00:00:00.000Z');
+      assert.equal((row?.last_seen_at as Date).toISOString(), '2026-08-05T00:00:00.000Z');
+      assert.equal(row?.title, 'Nowy tytuł');
+    });
 
-test('an update leaves the first-seen date alone', () => {
-  const db = freshDatabase();
+    test('the same id on two portals means two separate listings', async () => {
+      await upsertOffer(sql, offer({ source: 'olx', sourceId: '123' }));
+      await upsertOffer(sql, offer({ source: 'otodom', sourceId: '123' }));
 
-  upsertOffer(db, sampleOffer(), '2026-08-01T10:00:00.000Z');
-  upsertOffer(db, sampleOffer({ title: 'Changed title' }), '2026-08-05T10:00:00.000Z');
-
-  const row = db.prepare('select first_seen_at, last_seen_at, title from offers').get();
-
-  strictEqual(row?.first_seen_at, '2026-08-01T10:00:00.000Z');
-  strictEqual(row?.last_seen_at, '2026-08-05T10:00:00.000Z');
-  strictEqual(row?.title, 'Changed title');
-
-  db.close();
-});
-
-test('the same id on two portals means two separate listings', () => {
-  const db = freshDatabase();
-
-  upsertOffer(db, sampleOffer({ source: 'olx', sourceId: '999' }));
-  upsertOffer(db, sampleOffer({ source: 'otodom', sourceId: '999' }));
-
-  strictEqual(countRows(db, 'offers'), 2);
-
-  db.close();
-});
+      const [row] = await sql`select count(*) as total from offers`;
+      assert.equal(Number(row?.total), 2);
+    });
+  },
+);

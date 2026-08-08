@@ -1,45 +1,40 @@
-import type { DatabaseSync } from 'node:sqlite';
 import type { Classification, CostCertainty, Tier } from '../domain/classify.ts';
+import type { Queryable } from './client.ts';
 import {
+  readIso,
   readNullableBoolean,
+  readNullableIso,
   readNullableNumber,
   readNullableString,
   readNumber,
   readString,
+  readStringArray,
   type DbRow,
 } from './rows.ts';
 
-const SAVE_SQL = `
-  insert into classifications (
-    offer_id, tier, total_cost_pln, cost_certainty, reasons, rules_version, classified_at
-  ) values (?, ?, ?, ?, ?, ?, ?)
-  on conflict (offer_id) do update set
-    tier           = excluded.tier,
-    total_cost_pln = excluded.total_cost_pln,
-    cost_certainty = excluded.cost_certainty,
-    reasons        = excluded.reasons,
-    rules_version  = excluded.rules_version,
-    classified_at  = excluded.classified_at
-`;
-
-/** One verdict per listing, replaced when the rules change. No history: `offers` has the facts. */
-export function saveClassification(
-  db: DatabaseSync,
+/** One verdict per listing, replaced when the rules change. `offers` keeps the facts. */
+export async function saveClassification(
+  sql: Queryable,
   offerId: number,
   classification: Classification,
   rulesVersion: number,
-  classifiedAt: string = new Date().toISOString(),
-): void {
-  db.prepare(SAVE_SQL).run(
-    offerId,
-    classification.tier,
-    classification.totalCostPln,
-    classification.costCertainty,
-    // JSON, so the dashboard lists reasons rather than splitting a sentence apart.
-    JSON.stringify(classification.reasons),
-    rulesVersion,
-    classifiedAt,
-  );
+): Promise<void> {
+  await sql`
+    insert into classifications (
+      offer_id, tier, total_cost_pln, cost_certainty, reasons, rules_version, classified_at
+    ) values (
+      ${offerId}, ${classification.tier}, ${classification.totalCostPln},
+      ${classification.costCertainty}, ${JSON.stringify(classification.reasons)},
+      ${rulesVersion}, now()
+    )
+    on conflict (offer_id) do update set
+      tier           = excluded.tier,
+      total_cost_pln = excluded.total_cost_pln,
+      cost_certainty = excluded.cost_certainty,
+      reasons        = excluded.reasons,
+      rules_version  = excluded.rules_version,
+      classified_at  = excluded.classified_at
+  `;
 }
 
 /** Facts and verdict, joined. No description: it is HTML written by a stranger. */
@@ -78,14 +73,6 @@ function toCertainty(value: string): CostCertainty {
   throw new Error(`Unknown cost certainty "${value}".`);
 }
 
-function toReasons(value: string): string[] {
-  const parsed: unknown = JSON.parse(value);
-  if (!Array.isArray(parsed) || parsed.some((item) => typeof item !== 'string')) {
-    throw new Error('The reasons column does not hold a list of strings.');
-  }
-  return parsed;
-}
-
 function toClassifiedOffer(row: DbRow): ClassifiedOffer {
   return {
     id: readNumber(row, 'id'),
@@ -101,31 +88,29 @@ function toClassifiedOffer(row: DbRow): ClassifiedOffer {
     totalCostPln: readNullableNumber(row, 'total_cost_pln'),
     tier: toTier(readString(row, 'tier')),
     costCertainty: toCertainty(readString(row, 'cost_certainty')),
-    reasons: toReasons(readString(row, 'reasons')),
+    reasons: readStringArray(row, 'reasons'),
     isPrivateOwner: readNullableBoolean(row, 'is_private_owner'),
     lat: readNullableNumber(row, 'lat'),
     lng: readNullableNumber(row, 'lng'),
     coordsPrecision: readNullableString(row, 'coords_precision'),
-    createdAtSource: readNullableString(row, 'created_at_source'),
-    firstSeenAt: readString(row, 'first_seen_at'),
+    createdAtSource: readNullableIso(row, 'created_at_source'),
+    firstSeenAt: readIso(row, 'first_seen_at'),
   };
 }
 
 /** Everything the dashboard shows. A few hundred rows, so it is sent once and filtered there. */
-export function listClassifiedOffers(db: DatabaseSync): ClassifiedOffer[] {
-  return db
-    .prepare(
-      `select o.id, o.source, o.url, o.title, o.district, o.area_m2, o.rooms, o.floor,
-              o.price_pln, o.rent_pln, o.is_private_owner, o.lat, o.lng, o.coords_precision,
-              o.created_at_source, o.first_seen_at,
-              c.tier, c.total_cost_pln, c.cost_certainty, c.reasons
-       from classifications c
-       join offers o on o.id = c.offer_id
-       where o.status = 'active'
-       -- Tier first: on price alone, a cheap unknown outranks a pricier listing that fits.
-       order by case c.tier when 'top' then 0 when 'worth' then 1 else 2 end,
-                c.total_cost_pln`,
-    )
-    .all()
-    .map(toClassifiedOffer);
+export async function listClassifiedOffers(sql: Queryable): Promise<ClassifiedOffer[]> {
+  const rows = await sql<DbRow[]>`
+    select o.id, o.source, o.url, o.title, o.district, o.area_m2, o.rooms, o.floor,
+           o.price_pln, o.rent_pln, o.is_private_owner, o.lat, o.lng, o.coords_precision,
+           o.created_at_source, o.first_seen_at,
+           c.tier, c.total_cost_pln, c.cost_certainty, c.reasons
+    from classifications c
+    join offers o on o.id = c.offer_id
+    where o.status = 'active'
+    -- Tier first: on price alone, a cheap unknown outranks a pricier listing that fits.
+    order by case c.tier when 'top' then 0 when 'worth' then 1 else 2 end, c.total_cost_pln
+  `;
+
+  return rows.map(toClassifiedOffer);
 }

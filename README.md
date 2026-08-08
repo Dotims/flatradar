@@ -47,14 +47,16 @@ a normal run is a handful out of seventy.
 
 ## Stack
 
-Node 26 + TypeScript with no build step (Node runs `.ts` natively). Storage is SQLite
-through the built-in `node:sqlite` module, so the project has no native dependencies.
+Node 26 + TypeScript with no build step (Node runs `.ts` natively). Storage is Postgres
+on Neon, reached through `postgres`, which is pure JavaScript: the project has no native
+dependencies.
 
 ## Running it
 
 ```bash
 pnpm install
-pnpm --filter @flatradar/collector migrate      # creates data/flatradar.db
+cp .env.example .env                            # then put your Neon connection string in it
+pnpm --filter @flatradar/collector migrate      # creates the schema
 pnpm --filter @flatradar/collector collect:olx     # fetches and stores OLX listings
 pnpm --filter @flatradar/collector collect:otodom # same for Otodom
 pnpm --filter @flatradar/collector classify     # judges what is stored, no network

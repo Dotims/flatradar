@@ -37,6 +37,11 @@ function readNumericText(params: OlxParam[], key: string): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function readWholePln(params: OlxParam[], key: string): number | null {
+  const value = readNumericText(params, key);
+  return value === null ? null : Math.round(value);
+}
+
 function readLabel(params: OlxParam[], key: string): string | null {
   const param = findParam(params, key);
   return param?.value.label ?? null;
@@ -63,7 +68,8 @@ export function parseOlxOffer(offer: OlxOffer): NormalizedOffer {
     description: offer.description || null,
 
     pricePln: readPrice(offer.params, 'price'),
-    rentPln: readNumericText(offer.params, 'rent'),
+    // Advertisers sometimes type a fractional fee, e.g. "1130.27".
+    rentPln: readWholePln(offer.params, 'rent'),
     // OLX has no separate deposit field; it only ever shows up in the description.
     depositPln: null,
 

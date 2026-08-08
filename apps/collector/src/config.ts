@@ -2,10 +2,17 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const repoRoot = resolve(packageRoot, '../..');
+
+/** Read from .env via `node --env-file`, or from the environment in CI and on Vercel. */
+function databaseUrl(): string {
+  const url = process.env.DATABASE_URL;
+  if (url === undefined || url === '') {
+    throw new Error('DATABASE_URL is not set. Put the Neon connection string in .env.');
+  }
+  return url;
+}
 
 export const config = {
-  /** Database file. Override with FLATRADAR_DB, which is handy in tests. */
-  databasePath: process.env.FLATRADAR_DB ?? resolve(repoRoot, 'data/flatradar.db'),
+  databaseUrl,
   migrationsDir: resolve(packageRoot, 'src/db/migrations'),
 } as const;
