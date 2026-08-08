@@ -9,7 +9,19 @@ and the good ones in Kraków are gone within hours.
 
 ## Status
 
-Early. Working: database schema and migrations.
+Early. Working: OLX collection and classification into tiers. Missing: Otodom, Telegram,
+the dashboard.
+
+## Tiers
+
+A listing is judged on two numbers. `worth` means the advertised rent alone is at or
+below 2200 PLN. `top` means the full monthly cost, rent plus building fee plus utilities,
+is at or below 2600 PLN. Districts outside the target area are rejected first, whatever
+they cost.
+
+Utilities live in the description and are often vague ("prąd według zużycia"). Such a
+listing is marked `uncertain` and cannot reach `top`, because promoting it there on a
+guess costs a viewing, while leaving it in `worth` costs nothing.
 
 ## How it works
 
@@ -30,8 +42,10 @@ through the built-in `node:sqlite` module, so the project has no native dependen
 
 ```bash
 pnpm install
-pnpm --filter @flatradar/collector migrate   # creates data/flatradar.db
-pnpm --filter @flatradar/collector status    # prints what is in the database
+pnpm --filter @flatradar/collector migrate      # creates data/flatradar.db
+pnpm --filter @flatradar/collector collect:olx  # fetches and stores listings
+pnpm --filter @flatradar/collector classify     # judges what is stored, no network
+pnpm --filter @flatradar/collector status       # prints what is in the database
 ```
 
 Quality gate before committing:
