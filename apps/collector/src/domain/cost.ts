@@ -1,24 +1,26 @@
 /**
- * Reading utility costs out of the listing description.
+ * Reading monthly costs out of the listing description.
  *
- * Both portals give the rent and the building fee as structured numbers, but utilities
- * are prose, written by whoever placed the ad: "media 600 zl", "prąd: około 150 zł",
- * "prąd według zużycia", "już ze wszystkim". This module says only what the description
- * actually states, and admits ignorance otherwise. It never estimates a missing amount.
+ * Both portals give the rent and the building fee as structured numbers, but everything
+ * else is prose, written by whoever placed the ad: "media 600 zl", "prąd: około 150 zł",
+ * "prąd według zużycia", "już ze wszystkim". This module reports only what a description
+ * actually says. It never estimates and never judges; deciding what a silence is worth
+ * belongs in `classify.ts`, where the thresholds live.
  */
 
-export type CostCertainty = 'exact' | 'all_in' | 'uncertain';
-
-export interface UtilityReading {
+export interface DescriptionCosts {
   /** Utilities stated on top of rent and building fee, in whole PLN. */
-  amountPln: number | null;
-  certainty: CostCertainty;
+  utilitiesPln: number | null;
+  /** The description claims the advertised price covers everything. */
+  allIn: boolean;
+  /** The description says there is no building fee at all. */
+  noFee: boolean;
   /**
-   * Whether the description talks about utilities at all. It does not change the
-   * verdict, but "says nothing about media" and "says media are metered without giving
-   * a figure" are different situations to look at, so the reason line keeps them apart.
+   * Whether utilities come up at all. It does not change any total, but "says nothing
+   * about media" and "says media are metered without giving a figure" are different
+   * situations to look at, so the reason line keeps them apart.
    */
-  mentioned: boolean;
+  mentionsUtilities: boolean;
 }
 
 /**
@@ -46,6 +48,16 @@ const ALL_IN_PATTERNS = [
 /** Words that mean the description is talking about utilities at all. */
 const UTILITY_MENTION = /\b(?:media|mediów|mediami|prąd\w*|gaz\w*|wod[ayę]|liczniki|zużyci\w*)\b/;
 
+/**
+ * "bez czynszu", "brak czynszu administracyjnego". Rare, but it is the difference
+ * between assuming a fee and knowing there is none, which is worth several hundred
+ * PLN a month in the verdict.
+ */
+const NO_FEE_PATTERNS = [
+  /(?:bez|brak|nie ma|zero)\s+(?:opłat\w*\s+)?czynsz\w*/,
+  /czynsz\w*[^.\n]{0,15}?(?:0|brak|zero)\s*(?:zł|zl|pln)?\b/,
+];
+
 // A sum with an optional thousands separator, followed by a currency: "600 zl", "1 200 zł".
 const MONEY = String.raw`(\d{1,2}[\s.]?\d{3}|\d{2,4})\s*(?:zł|zl|pln)`;
 
@@ -69,12 +81,11 @@ const AMOUNT_BEFORE_WORD = new RegExp(`${MONEY}[^.\\n]{0,10}?opłat\\w*`, 'g');
  * A figure surrounded by any of these is not utilities. The building fee is the dangerous
  * one: it arrives as its own column, so counting it again out of the prose would inflate
  * every total and quietly push affordable flats out of the priority tier.
- */
-/**
- * "najem" is deliberately absent. It reads like an obvious thing to block, but it
- * blocked "cena najmu 2700 zł + ok. 850 zł opłat dodatkowych", which states the extras
- * perfectly clearly. The rent itself is already kept out by the upper bound below: no
- * rent in Kraków lands under 1500 PLN.
+ *
+ * "najem" is deliberately absent. It reads like an obvious thing to block, but it blocked
+ * "cena najmu 2700 zł + ok. 850 zł opłat dodatkowych", which states the extras perfectly
+ * clearly. The rent itself is already kept out by the upper bound below: no rent in
+ * Kraków lands under 1500 PLN.
  */
 const NOT_UTILITIES =
   /czynsz|administracyjn|eksploatacyjn|spółdziel|kaucj|garaż|gazraż|parking|postojow|piwnic/;
@@ -124,37 +135,27 @@ function firstUsableAmount(text: string, pattern: RegExp): number | null {
   return null;
 }
 
-/**
- * Certainty, in the order the checks matter:
- *
- * - `all_in`     the description claims everything is covered
- * - `exact`      it names a utility amount we can add up
- * - `uncertain`  everything else, including saying nothing at all
- *
- * Silence is treated as uncertainty rather than as zero. Most Kraków listings do carry
- * utilities on top, so reading a missing sentence as "nothing extra" would promote
- * unaffordable flats into the priority tier, which is the expensive direction to be
- * wrong in: it costs a viewing. Being wrong the other way only leaves the listing in
- * the lower tier, where it is still visible.
- */
-export function readUtilityCost(description: string | null): UtilityReading {
+/** Everything the description is willing to say about what the flat costs per month. */
+export function readDescriptionCosts(description: string | null): DescriptionCosts {
   if (description === null) {
-    return { amountPln: null, certainty: 'uncertain', mentioned: false };
+    return { utilitiesPln: null, allIn: false, noFee: false, mentionsUtilities: false };
   }
 
   const text = toPlainText(description);
-  const mentioned = UTILITY_MENTION.test(text);
+  const mentionsUtilities = UTILITY_MENTION.test(text);
 
   if (ALL_IN_PATTERNS.some((pattern) => pattern.test(text))) {
-    return { amountPln: null, certainty: 'all_in', mentioned };
+    return { utilitiesPln: null, allIn: true, noFee: false, mentionsUtilities };
   }
 
   // "media 600 zl" is the common phrasing, so it gets the first look.
-  const amount =
+  const utilitiesPln =
     firstUsableAmount(text, AMOUNT_AFTER_WORD) ?? firstUsableAmount(text, AMOUNT_BEFORE_WORD);
-  if (amount !== null) {
-    return { amountPln: amount, certainty: 'exact', mentioned };
-  }
 
-  return { amountPln: null, certainty: 'uncertain', mentioned };
+  return {
+    utilitiesPln,
+    allIn: false,
+    noFee: NO_FEE_PATTERNS.some((pattern) => pattern.test(text)),
+    mentionsUtilities,
+  };
 }

@@ -19,9 +19,12 @@ below 2200 PLN. `top` means the full monthly cost, rent plus building fee plus u
 is at or below 2600 PLN. Districts outside the target area are rejected first, whatever
 they cost.
 
-Utilities live in the description and are often vague ("prąd według zużycia"). Such a
-listing is marked `uncertain` and cannot reach `top`, because promoting it there on a
-guess costs a viewing, while leaving it in `worth` costs nothing.
+The building fee and utilities are the awkward part. Portals report the fee as a number
+when the advertiser bothers to fill it in, and describe utilities in prose when they
+mention them at all. A listing that gives no fee is judged on an assumed 400 PLN, which
+is roughly what a Kraków flat costs to run, unless the description says the price covers
+everything or that there is no fee. Every verdict carries a `cost_certainty` saying
+whether its total was read or assumed, and a list of reasons in plain words.
 
 ## How it works
 

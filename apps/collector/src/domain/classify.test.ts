@@ -55,50 +55,70 @@ test('district matching ignores casing and stray whitespace', () => {
   assert.equal(classify(offer({ district: '  krowodrza ' })).tier, 'other');
 });
 
-test('an unknown total never reaches the priority tier', () => {
-  // Rent and fee alone would fit under the limit, but the utilities are anyone's guess.
-  const result = classify(offer({ description: 'prąd według zużycia' }));
-  assert.equal(result.costCertainty, 'uncertain');
-  assert.equal(result.tier, 'worth');
+test('a missing building fee is assumed rather than treated as zero', () => {
+  const result = classify(offer({ rentPln: null, description: 'Przytulna kawalerka.' }));
+  assert.equal(result.costCertainty, 'estimated');
+  assert.equal(result.totalCostPln, 2400);
+  assert.ok(result.reasons.some((reason) => reason.includes('400 PLN is assumed')));
 });
 
-test('stated utilities are added to the total', () => {
-  const result = classify(offer({ description: 'media 400 zł miesięcznie' }));
+test('a description that rules out a building fee beats the assumption', () => {
+  const result = classify(offer({ rentPln: null, description: 'bez czynszu administracyjnego' }));
+  assert.equal(result.costCertainty, 'exact');
+  assert.equal(result.totalCostPln, 2000);
+});
+
+test('a stated building fee beats the assumption', () => {
+  const result = classify(offer({ rentPln: 700, description: 'Przytulna kawalerka.' }));
   assert.equal(result.costCertainty, 'exact');
   assert.equal(result.totalCostPln, 2700);
-  // 2700 is over the all-in limit, but the rent alone still qualifies.
+});
+
+test('stated utilities are added on top of the fee', () => {
+  const result = classify(offer({ description: 'media 400 zł miesięcznie' }));
+  assert.equal(result.totalCostPln, 2700);
+  // Over the all-in limit, but the rent alone still qualifies.
   assert.equal(result.tier, 'worth');
 });
 
-test('rent above the lower limit with an unknown total is rejected', () => {
-  const result = classify(offer({ pricePln: 2500, description: 'prąd według zużycia' }));
-  assert.equal(result.tier, 'other');
+test('utilities named right next to the building fee are left out', () => {
+  // A known limitation rather than an oversight. The reader refuses any figure with the
+  // word "czynsz" within forty characters, because the portal already reports the fee
+  // and counting it twice inflates every total. When both sit in one short sentence the
+  // utilities are lost with it, which understates the cost instead of overstating it.
+  const result = classify(offer({ description: 'czynsz 300 zł, media 400 zł' }));
+  assert.equal(result.totalCostPln, 2300);
 });
 
-test('rent above the lower limit still reaches top when the total is known and fits', () => {
+test('an estimated total can still reach the priority tier', () => {
+  // The whole point of assuming a fee: a silent listing gets judged on a realistic
+  // figure instead of sitting in a tier nobody reads.
+  const result = classify(offer({ pricePln: 2100, rentPln: null, description: 'Kawalerka.' }));
+  assert.equal(result.tier, 'top');
+  assert.equal(result.costCertainty, 'estimated');
+});
+
+test('rent above the lower limit still reaches top when the total fits', () => {
   const result = classify(offer({ pricePln: 2400, rentPln: 150 }));
   assert.equal(result.tier, 'top');
   assert.equal(result.totalCostPln, 2550);
 });
 
-test('both limits are inclusive', () => {
-  assert.equal(classify(offer({ pricePln: 2300, rentPln: 300 })).totalCostPln, 2600);
-  assert.equal(classify(offer({ pricePln: 2300, rentPln: 300 })).tier, 'top');
-  assert.equal(
-    classify(offer({ pricePln: 2200, rentPln: null, description: 'prąd wg zużycia' })).tier,
-    'worth',
-  );
+test('an expensive flat with an expensive fee is rejected outright', () => {
+  const result = classify(offer({ pricePln: 2500, rentPln: 800 }));
+  assert.equal(result.tier, 'other');
 });
 
-test('a missing building fee counts as zero rather than blocking the verdict', () => {
-  const result = classify(offer({ rentPln: null }));
-  assert.equal(result.totalCostPln, 2000);
+test('both limits are inclusive', () => {
+  assert.equal(classify(offer({ pricePln: 2300, rentPln: 300 })).tier, 'top');
+  assert.equal(classify(offer({ pricePln: 2200, rentPln: 900 })).tier, 'worth');
 });
 
 test('a listing with no rent stated cannot be judged', () => {
   const result = classify(offer({ pricePln: null }));
   assert.equal(result.tier, 'other');
   assert.equal(result.totalCostPln, null);
+  assert.equal(result.costCertainty, 'uncertain');
 });
 
 test('every verdict explains itself', () => {
