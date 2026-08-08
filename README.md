@@ -30,11 +30,20 @@ whether its total was read or assumed, and a list of reasons in plain words.
 
 Both portals serve structured JSON, so there is no HTML parsing and no headless browser.
 
-| Portal | Data source                     | What it gives                                                  |
-| ------ | ------------------------------- | -------------------------------------------------------------- |
-| OLX    | `/api/v1/offers/` (public API)  | price, building fee, district, description, publish date       |
-| Otodom | `/_next/data/<buildId>/...json` | price, building fee, street, district, estate, advertiser type |
-| Otodom | listing page                    | exact coordinates (`radius: 0`), full description              |
+| Portal | Data source                     | What it gives                                                   |
+| ------ | ------------------------------- | --------------------------------------------------------------- |
+| OLX    | `/api/v1/offers/` (public API)  | price, building fee, district, description, blurred coordinates |
+| Otodom | `/_next/data/<buildId>/...json` | price, building fee, street, district, advertiser type          |
+| Otodom | listing page                    | exact coordinates (`radius: 0`), full description               |
+
+Otodom publishes no API. What it does publish is the data endpoint Next.js serves its
+own pages from, which is the same payload without the HTML. The `buildId` in that path
+changes on every deploy of theirs, so it is scraped from the search page and refreshed
+when a request comes back 404.
+
+Otodom search results carry no description and no coordinates, and both cost a request
+per listing. They are fetched only for listings that could still reach a tier, which on
+a normal run is a handful out of seventy.
 
 ## Stack
 
@@ -46,7 +55,8 @@ through the built-in `node:sqlite` module, so the project has no native dependen
 ```bash
 pnpm install
 pnpm --filter @flatradar/collector migrate      # creates data/flatradar.db
-pnpm --filter @flatradar/collector collect:olx  # fetches and stores listings
+pnpm --filter @flatradar/collector collect:olx     # fetches and stores OLX listings
+pnpm --filter @flatradar/collector collect:otodom # same for Otodom
 pnpm --filter @flatradar/collector classify     # judges what is stored, no network
 pnpm --filter @flatradar/collector status       # prints what is in the database
 ```

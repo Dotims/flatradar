@@ -25,10 +25,13 @@ export async function sleep(ms: number): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export async function fetchJson<T>(
-  url: string,
-  options: { headers?: Record<string, string>; timeoutMs?: number } = {},
-): Promise<T> {
+export interface FetchOptions {
+  headers?: Record<string, string>;
+  timeoutMs?: number;
+}
+
+/** Shared by every fetch here: honest headers, one timeout, retries only where useful. */
+async function fetchText(url: string, options: FetchOptions = {}): Promise<string> {
   const { headers = {}, timeoutMs = 15_000 } = options;
   let lastError: unknown;
 
@@ -37,7 +40,6 @@ export async function fetchJson<T>(
       const response = await fetch(url, {
         headers: {
           'User-Agent': USER_AGENT,
-          Accept: 'application/json',
           'Accept-Language': 'pl-PL,pl;q=0.9',
           ...headers,
         },
@@ -49,7 +51,7 @@ export async function fetchJson<T>(
         if (!isRetryable(response.status)) throw error;
         lastError = error;
       } else {
-        return (await response.json()) as T;
+        return await response.text();
       }
     } catch (error) {
       // Network failure or timeout: worth another attempt as well.
@@ -62,4 +64,21 @@ export async function fetchJson<T>(
   }
 
   throw lastError;
+}
+
+export async function fetchJson<T>(url: string, options: FetchOptions = {}): Promise<T> {
+  const body = await fetchText(url, {
+    ...options,
+    headers: { Accept: 'application/json', ...options.headers },
+  });
+
+  return JSON.parse(body) as T;
+}
+
+/** For pages we read rather than call: Otodom hides its build id in the search HTML. */
+export async function fetchHtml(url: string, options: FetchOptions = {}): Promise<string> {
+  return fetchText(url, {
+    ...options,
+    headers: { Accept: 'text/html', ...options.headers },
+  });
 }

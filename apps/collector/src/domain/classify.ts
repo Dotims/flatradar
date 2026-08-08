@@ -45,6 +45,21 @@ export interface Classification {
 }
 
 /**
+ * Whether a listing could still reach a tier once its description is known, judged
+ * without reading one. Sources that pay per request for the description ask this first.
+ *
+ * Two things a description can never rescue. An excluded district is absolute. And the
+ * kindest reading of any listing is that the advertised rent is the whole cost, so a
+ * rent above the all-in limit cannot reach `top`, while a rent above the lower limit
+ * cannot reach `worth`; above both, the verdict is `other` whatever the prose says.
+ */
+export function mightQualify(offer: NormalizedOffer): boolean {
+  if (isExcludedDistrict(offer.district)) return false;
+  if (offer.pricePln === null) return false;
+  return offer.pricePln <= Math.max(TOP_MAX_TOTAL_PLN, WORTH_MAX_RENT_PLN);
+}
+
+/**
  * Turns one listing into a verdict. Pure on purpose: no database, no network, no clock.
  * Every input is on the offer, so the whole thing is testable by handing it an object,
  * and rerunning it over stored rows costs nothing.

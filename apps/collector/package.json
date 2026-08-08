@@ -9,6 +9,7 @@
     "migrate": "node src/db/migrate.ts",
     "status": "node src/index.ts",
     "collect:olx": "node src/commands/collect-olx.ts",
+    "collect:otodom": "node src/commands/collect-otodom.ts",
     "classify": "node src/commands/classify.ts",
     "serve": "node src/server.ts"
   }

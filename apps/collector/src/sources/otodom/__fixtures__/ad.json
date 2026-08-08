@@ -1,0 +1,86 @@
+{
+  "pageProps": {
+    "ad": {
+      "id": 68294934,
+      "slug": "pl-ua-en-2-pokoje-kuchnia-duze-mieszkanie-tramwaj-ID4CyDc",
+      "title": "PL / UA / EN | 2 Pokoje + kuchnia | Duże mieszkanie | Tramwaj",
+      "description": "<p><b>Description in english below</b></p><p>Мы также говорим по-русски</p><p></p><p><b>Biuro Nieruchomości Glory Estate</b> <b>prezentuje</b> na wynajem nowoczesne i komfortowe mieszkanie <b>2-pokojowe z oddzielną kuchnią, przestronnym balkonem, o pow. ok. 56 m2, </b>zlokalizowane nowoczesnym apartamentowcu<b>na Prądniku Czerwonym, przy ul. Marchołta. </b></p><p></p><p><b>W sierpniu powstanie tu tramwaj</b></p><p><b>Teren zamknięty.</b></p><p><b>Mieszkanie jest po remoncie, jest bardzo przyjemne</b></p><p>Mieszkanie dostępne <b>od zaraz.</b></p><p>W mieszakaniu jest <b>dużo miejsca do przecho",
+      "location": {
+        "coordinates": {
+          "latitude": 50.093163,
+          "longitude": 19.986994,
+          "__typename": "Coordinates"
+        },
+        "mapDetails": {
+          "radius": 0,
+          "zoom": 16,
+          "__typename": "MapDetails"
+        },
+        "address": {
+          "street": {
+            "name": "ul. Marchołta",
+            "number": null
+          },
+          "subdistrict": null,
+          "district": null,
+          "city": null,
+          "county": null,
+          "municipality": null,
+          "province": null,
+          "postalCode": null
+        },
+        "reverseGeocoding": {
+          "locations": [
+            {
+              "id": "malopolskie",
+              "locationLevel": "voivodeship",
+              "name": "małopolskie",
+              "fullName": "małopolskie",
+              "fullNameItems": ["małopolskie"],
+              "parentIds": [],
+              "__typename": "BasicLocationObject"
+            },
+            {
+              "id": "malopolskie/krakow/krakow/krakow",
+              "locationLevel": "city_or_village",
+              "name": "Kraków",
+              "fullName": "Kraków, małopolskie",
+              "fullNameItems": ["Kraków", "małopolskie"],
+              "parentIds": ["malopolskie", "malopolskie/krakow", "malopolskie/krakow/krakow"],
+              "__typename": "BasicLocationObject"
+            },
+            {
+              "id": "malopolskie/krakow/krakow/krakow/pradnik-czerwony",
+              "locationLevel": "district",
+              "name": "Prądnik Czerwony",
+              "fullName": "Prądnik Czerwony, Kraków, małopolskie",
+              "fullNameItems": ["Prądnik Czerwony", "Kraków", "małopolskie"],
+              "parentIds": [
+                "malopolskie",
+                "malopolskie/krakow",
+                "malopolskie/krakow/krakow",
+                "malopolskie/krakow/krakow/krakow"
+              ],
+              "__typename": "BasicLocationObject"
+            },
+            {
+              "id": "malopolskie/krakow/krakow/krakow/pradnik-czerwony/pradnik-czerwony",
+              "locationLevel": "residential",
+              "name": "Prądnik Czerwony",
+              "fullName": "Prądnik Czerwony, Prądnik Czerwony, Kraków, małopolskie",
+              "fullNameItems": ["Prądnik Czerwony", "Prądnik Czerwony", "Kraków", "małopolskie"],
+              "parentIds": [
+                "malopolskie",
+                "malopolskie/krakow",
+                "malopolskie/krakow/krakow",
+                "malopolskie/krakow/krakow/krakow",
+                "malopolskie/krakow/krakow/krakow/pradnik-czerwony"
+              ],
+              "__typename": "BasicLocationObject"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

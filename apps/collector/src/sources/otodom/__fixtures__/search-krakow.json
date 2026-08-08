@@ -1,0 +1,169 @@
+{
+  "pageProps": {
+    "data": {
+      "searchAds": {
+        "items": [
+          {
+            "id": 68294934,
+            "slug": "pl-ua-en-2-pokoje-kuchnia-duze-mieszkanie-tramwaj-ID4CyDc",
+            "title": "PL / UA / EN | 2 Pokoje + kuchnia | Duże mieszkanie | Tramwaj",
+            "totalPrice": {
+              "value": 3099,
+              "currency": "PLN",
+              "__typename": "Money"
+            },
+            "rentPrice": {
+              "value": 450,
+              "currency": "PLN",
+              "__typename": "Money"
+            },
+            "areaInSquareMeters": 56,
+            "roomsNumber": "TWO",
+            "floorNumber": "THIRD",
+            "isPrivateOwner": false,
+            "createdAtFirst": "2026-08-08T16:01:48Z",
+            "dateCreated": "2026-08-08 16:02:00",
+            "pushedUpAt": null,
+            "location": {
+              "mapDetails": {
+                "radius": 0,
+                "__typename": "MapDetails"
+              },
+              "address": {
+                "street": {
+                  "name": "ul. Marchołta",
+                  "number": "",
+                  "__typename": "Street"
+                },
+                "city": {
+                  "name": "Kraków",
+                  "__typename": "City"
+                },
+                "province": {
+                  "name": "małopolskie",
+                  "__typename": "Province"
+                },
+                "__typename": "Address"
+              },
+              "reverseGeocoding": {
+                "locations": [
+                  {
+                    "id": "malopolskie",
+                    "name": "małopolskie",
+                    "locationLevel": "voivodeship",
+                    "fullName": "małopolskie",
+                    "__typename": "BasicLocationObject"
+                  },
+                  {
+                    "id": "malopolskie/krakow/krakow/krakow",
+                    "name": "Kraków",
+                    "locationLevel": "city_or_village",
+                    "fullName": "Kraków, małopolskie",
+                    "__typename": "BasicLocationObject"
+                  },
+                  {
+                    "id": "malopolskie/krakow/krakow/krakow/pradnik-czerwony",
+                    "name": "Prądnik Czerwony",
+                    "locationLevel": "district",
+                    "fullName": "Prądnik Czerwony, Kraków, małopolskie",
+                    "__typename": "BasicLocationObject"
+                  },
+                  {
+                    "id": "malopolskie/krakow/krakow/krakow/pradnik-czerwony/pradnik-czerwony",
+                    "name": "Prądnik Czerwony",
+                    "locationLevel": "residential",
+                    "fullName": "Prądnik Czerwony, Prądnik Czerwony, Kraków, małopolskie",
+                    "__typename": "BasicLocationObject"
+                  }
+                ],
+                "__typename": "ReverseGeocoding"
+              },
+              "__typename": "LocationDetails"
+            }
+          },
+          {
+            "id": 68294844,
+            "slug": "krakow-salwator-funkcjonalne-mieszkanie-42-m-kolo-blon-blisko-agh-ID4CyBK",
+            "title": "Kraków, Salwator - funkcjonalne mieszkanie 42 m² koło Błoń, blisko AGH",
+            "totalPrice": {
+              "value": 2700,
+              "currency": "PLN",
+              "__typename": "Money"
+            },
+            "rentPrice": {
+              "value": 400,
+              "currency": "PLN",
+              "__typename": "Money"
+            },
+            "areaInSquareMeters": 42,
+            "roomsNumber": "TWO",
+            "floorNumber": "SECOND",
+            "isPrivateOwner": true,
+            "createdAtFirst": "2026-08-08T14:59:12Z",
+            "dateCreated": "2026-08-08 15:01:09",
+            "pushedUpAt": null,
+            "location": {
+              "mapDetails": {
+                "radius": 0,
+                "__typename": "MapDetails"
+              },
+              "address": {
+                "street": {
+                  "name": "ul. Bolesława Prusa",
+                  "number": "",
+                  "__typename": "Street"
+                },
+                "city": {
+                  "name": "Kraków",
+                  "__typename": "City"
+                },
+                "province": {
+                  "name": "małopolskie",
+                  "__typename": "Province"
+                },
+                "__typename": "Address"
+              },
+              "reverseGeocoding": {
+                "locations": [
+                  {
+                    "id": "malopolskie",
+                    "name": "małopolskie",
+                    "locationLevel": "voivodeship",
+                    "fullName": "małopolskie",
+                    "__typename": "BasicLocationObject"
+                  },
+                  {
+                    "id": "malopolskie/krakow/krakow/krakow",
+                    "name": "Kraków",
+                    "locationLevel": "city_or_village",
+                    "fullName": "Kraków, małopolskie",
+                    "__typename": "BasicLocationObject"
+                  },
+                  {
+                    "id": "malopolskie/krakow/krakow/krakow/zwierzyniec",
+                    "name": "Zwierzyniec",
+                    "locationLevel": "district",
+                    "fullName": "Zwierzyniec, Kraków, małopolskie",
+                    "__typename": "BasicLocationObject"
+                  },
+                  {
+                    "id": "malopolskie/krakow/krakow/krakow/zwierzyniec/polwsie-zwierzynieckie",
+                    "name": "Półwsie Zwierzynieckie",
+                    "locationLevel": "residential",
+                    "fullName": "Półwsie Zwierzynieckie, Zwierzyniec, Kraków, małopolskie",
+                    "__typename": "BasicLocationObject"
+                  }
+                ],
+                "__typename": "ReverseGeocoding"
+              },
+              "__typename": "LocationDetails"
+            }
+          }
+        ],
+        "pagination": {
+          "totalPages": 80
+        }
+      }
+    }
+  }
+}
