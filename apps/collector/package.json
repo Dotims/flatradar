@@ -8,6 +8,7 @@
     "test": "node --test",
     "migrate": "node src/db/migrate.ts",
     "status": "node src/index.ts",
+    "collect": "node src/commands/collect.ts",
     "collect:olx": "node src/commands/collect-olx.ts",
     "collect:otodom": "node src/commands/collect-otodom.ts",
     "classify": "node src/commands/classify.ts",

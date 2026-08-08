@@ -1,0 +1,13 @@
+[Unit]
+Description=FlatRadar: local API the dashboard reads
+After=default.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/Desktop/projects/flatradar
+ExecStart=/usr/bin/node apps/collector/src/server.ts
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

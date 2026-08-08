@@ -57,10 +57,19 @@ export function App() {
   if (loading) return <p>Ładowanie...</p>;
   if (error !== null) {
     return (
-      <p>
-        Nie udało się pobrać ofert: {error}. Czy działa{' '}
-        <code>pnpm --filter @flatradar/collector serve</code>?
-      </p>
+      <div>
+        <p>
+          <strong>Panel nie ma skąd wziąć danych.</strong>
+        </p>
+        {/* The dev server proxies /api and answers 500 when nothing is listening on the
+            other end. That reads as a broken API when the API is simply not running,
+            which is the usual cause, so it is named first. */}
+        <p>Najczęstsza przyczyna: nie działa API. Uruchom je w drugim terminalu:</p>
+        <pre>pnpm serve</pre>
+        <p>
+          Szczegóły: <code>{error}</code>
+        </p>
+      </div>
     );
   }
 
