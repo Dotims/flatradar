@@ -3,6 +3,7 @@ import { FilterRail } from './components/FilterRail.tsx';
 import { OfferCard } from './components/OfferCard.tsx';
 import { OfferMap } from './components/OfferMap.tsx';
 import { PipelineGraph } from './components/PipelineGraph.tsx';
+import { StatusStrip } from './components/StatusStrip.tsx';
 import { applyFilters, availableDistricts, DEFAULT_FILTERS, type Filters } from './filters.ts';
 import { minutesSince, since } from './format.ts';
 import type { Offer, SourceStatus, Tier } from './types.ts';
@@ -39,6 +40,19 @@ export function App() {
   const [syncNote, setSyncNote] = useState<SyncNote | null>(null);
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
   const [activeId, setActiveId] = useState<number | null>(null);
+  const [graphOpen, setGraphOpen] = useState(false);
+  const [mapOpen, setMapOpen] = useState(false);
+
+  const toggleTier = useCallback(
+    (tier: Tier) =>
+      setFilters((current) => ({
+        ...current,
+        tiers: current.tiers.includes(tier)
+          ? current.tiers.filter((item) => item !== tier)
+          : [...current.tiers, tier],
+      })),
+    [],
+  );
 
   const load = useCallback(async (signal?: AbortSignal) => {
     const response = await fetch('/api/offers', signal ? { signal } : {});
@@ -222,27 +236,29 @@ export function App() {
         </div>
       </header>
 
-      <PipelineGraph
+      <StatusStrip
         counts={counts}
-        rulesVersion="v3"
         sources={sources}
         selectedTiers={filters.tiers}
-        onToggleTier={(tier) =>
-          setFilters({
-            ...filters,
-            tiers: filters.tiers.includes(tier)
-              ? filters.tiers.filter((item) => item !== tier)
-              : [...filters.tiers, tier],
-          })
-        }
+        onToggleTier={toggleTier}
+        expanded={graphOpen}
+        onToggleExpanded={() => setGraphOpen((open) => !open)}
       />
 
-      <div className="mt-12 grid gap-10 lg:mt-16 lg:grid-cols-[15rem_minmax(0,1fr)] lg:gap-12">
-        <aside className="lg:sticky lg:top-8 lg:self-start">
-          <FilterRail filters={filters} districts={districts} onChange={setFilters} />
-        </aside>
+      {graphOpen && (
+        <div className="mt-6 overflow-x-clip">
+          <PipelineGraph
+            counts={counts}
+            rulesVersion="v3"
+            sources={sources}
+            selectedTiers={filters.tiers}
+            onToggleTier={toggleTier}
+          />
+        </div>
+      )}
 
-        <div className="min-w-0">
+      <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,1fr)_15rem] lg:gap-10 2xl:grid-cols-[minmax(0,1fr)_26rem_15rem]">
+        <div className="min-w-0 lg:order-1">
           <div className="flex items-baseline justify-between border-b border-line pb-3">
             <h2 className="text-sm font-medium text-ink-dim">Oferty</h2>
             <span aria-live="polite" className="num text-xs text-ink-faint">
@@ -251,10 +267,6 @@ export function App() {
                 <span className="ml-2 text-ink-faint">· {withoutLocation} bez lokalizacji</span>
               )}
             </span>
-          </div>
-
-          <div className="mt-6 h-72 sm:h-96">
-            <OfferMap offers={visible} activeId={activeId} onHover={setActiveId} />
           </div>
 
           {visible.length === 0 ? (
@@ -276,6 +288,36 @@ export function App() {
             </ul>
           )}
         </div>
+
+        {/* Wide enough for a third column: the map sits beside the list, tall rather
+            than letterboxed, and both stay visible while hovering links them. */}
+        <div className="hidden 2xl:order-2 2xl:block">
+          <div className="sticky top-6 h-[calc(100dvh-3rem)]">
+            <OfferMap offers={visible} activeId={activeId} onHover={setActiveId} />
+          </div>
+        </div>
+
+        <aside className="lg:order-3 lg:sticky lg:top-6 lg:max-h-[calc(100dvh-3rem)] lg:self-start lg:overflow-y-auto lg:pr-1">
+          <FilterRail filters={filters} districts={districts} onChange={setFilters} />
+
+          {/* Below the third-column breakpoint the map is a panel, closed by default,
+              so it never pushes the listings past the fold. */}
+          <div className="mt-8 2xl:hidden">
+            <button
+              type="button"
+              onClick={() => setMapOpen((open) => !open)}
+              aria-expanded={mapOpen}
+              className="tag normal-case transition-colors hover:text-ink-dim"
+            >
+              {mapOpen ? 'ukryj mapę' : `pokaż mapę · ${visible.length - withoutLocation}`}
+            </button>
+            {mapOpen && (
+              <div className="mt-3 h-80">
+                <OfferMap offers={visible} activeId={activeId} onHover={setActiveId} />
+              </div>
+            )}
+          </div>
+        </aside>
       </div>
     </div>
   );

@@ -104,7 +104,7 @@ function Node({
       }`}
     >
       {accent && (
-        <div className="animate-drift pointer-events-none absolute -inset-6 -z-10 rounded-full bg-signal-500/12 blur-2xl" />
+        <div className="animate-drift pointer-events-none absolute -inset-4 -z-10 rounded-full bg-signal-500/12 blur-2xl" />
       )}
       <div className="tag flex items-center gap-1.5 whitespace-nowrap">
         <Mark kind={mark} />

@@ -18,7 +18,7 @@ export function OfferCard({
     <article
       onMouseEnter={() => onHover(offer.id)}
       onMouseLeave={() => onHover(null)}
-      className={`rule relative rounded-xl bg-graphite-950 p-5 transition-colors duration-150 ${
+      className={`rule @container relative rounded-xl bg-graphite-950 p-5 transition-colors duration-150 ${
         active ? 'border-signal-500/60 bg-graphite-900' : 'hover:border-line-strong'
       }`}
     >
@@ -55,16 +55,16 @@ export function OfferCard({
         </div>
       </div>
 
-      <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 border-t border-line pt-3 sm:grid-cols-4">
+      <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 border-t border-line pt-3 @lg:grid-cols-4">
         {[
           ['dzielnica', offer.district ?? 'brak'],
           ['metraż', area(offer.areaM2)],
           ['pokoje', rooms(offer.rooms)],
-          ['najem za m²', pricePerM2(offer.pricePln, offer.areaM2)],
+          ['najem/m²', pricePerM2(offer.pricePln, offer.areaM2)],
         ].map(([label, value]) => (
           <div key={label}>
             <dt className="tag">{label}</dt>
-            <dd className="num mt-0.5 truncate text-sm text-ink-dim">{value}</dd>
+            <dd className="num mt-0.5 text-sm text-ink-dim">{value}</dd>
           </div>
         ))}
       </dl>

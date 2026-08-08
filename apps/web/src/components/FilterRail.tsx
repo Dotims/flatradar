@@ -129,13 +129,14 @@ export function FilterRail({
       </div>
 
       {districts.length > 0 && (
-        <div>
-          <span className="tag">
+        <details className="group">
+          <summary className="tag cursor-pointer list-none transition-colors hover:text-ink-dim">
             dzielnice{' '}
             {filters.districts.length > 0 && (
               <span className="text-signal-400">[{filters.districts.length}]</span>
             )}
-          </span>
+            <span className="ml-1 inline-block transition-transform group-open:rotate-90">›</span>
+          </summary>
           <div className="mt-2 flex flex-wrap gap-2">
             {districts.map((district) => (
               <Pill
@@ -149,7 +150,7 @@ export function FilterRail({
               </Pill>
             ))}
           </div>
-        </div>
+        </details>
       )}
 
       <button
