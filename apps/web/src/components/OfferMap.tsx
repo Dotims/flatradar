@@ -12,16 +12,14 @@ function isExact(offer: Offer): boolean {
 }
 
 function pin(offer: Offer, active: boolean) {
-  const ring = active ? 'ring-4 ring-ember-400/50' : '';
-  const tone = offer.tier === 'top' ? 'bg-ember-500' : 'bg-amber-400';
+  const colour = offer.tier === 'top' ? '#ea580c' : '#d97706';
+  const size = active ? 16 : 11;
 
   return divIcon({
     className: '',
-    iconSize: [0, 0],
-    html: `<span class="relative -ml-3 -mt-3 grid size-6 place-items-center">
-      ${offer.tier === 'top' ? `<span class="absolute inline-flex size-6 rounded-full ${tone} opacity-60 animate-ping-slow"></span>` : ''}
-      <span class="relative inline-flex size-3.5 rounded-full ${tone} ${ring} shadow-lg"></span>
-    </span>`,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+    html: `<span style="display:block;width:${size}px;height:${size}px;border-radius:9999px;background:${colour};border:2px solid #fff"></span>`,
   });
 }
 
@@ -68,18 +66,17 @@ export function OfferMap({
   const located = offers.filter((offer) => offer.lat !== null && offer.lng !== null);
 
   return (
-    <div className="relative h-full min-h-[22rem] overflow-hidden rounded-2xl border border-white/10">
+    <div style={{ position: 'relative', height: '100%', minHeight: '20rem' }}>
       <MapContainer
         center={KRAKOW}
         zoom={12}
         scrollWheelZoom
-        className="h-full w-full"
+        style={{ height: '100%', width: '100%' }}
         attributionControl
       >
         <TileLayer
-          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
-          maxZoom={20}
+          url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         />
         <FitToContainer />
         <Recentre offers={located} />
@@ -115,16 +112,6 @@ export function OfferMap({
           ),
         )}
       </MapContainer>
-
-      <div className="pointer-events-none absolute bottom-3 left-3 z-[400] flex flex-col gap-1 rounded-xl border border-white/10 bg-ash-950/85 px-3 py-2 text-[0.7rem] text-stone-300 backdrop-blur">
-        <span className="flex items-center gap-2">
-          <span className="size-2.5 rounded-full bg-ember-500" /> dokładny adres (Otodom)
-        </span>
-        <span className="flex items-center gap-2">
-          <span className="size-2.5 rounded-full border border-amber-400/70 bg-amber-400/20" />{' '}
-          przybliżony obszar (OLX)
-        </span>
-      </div>
     </div>
   );
 }

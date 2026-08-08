@@ -1,17 +1,30 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { FilterBar } from './components/FilterBar.tsx';
-import { OfferCard } from './components/OfferCard.tsx';
 import { OfferMap } from './components/OfferMap.tsx';
-import { RadarMark } from './components/RadarMark.tsx';
-import { StatTile } from './components/StatTile.tsx';
 import { applyFilters, availableDistricts, DEFAULT_FILTERS, type Filters } from './filters.ts';
-import { since } from './format.ts';
-import type { Offer } from './types.ts';
+import { area, pln, since } from './format.ts';
+import type { Offer, Tier } from './types.ts';
 
-/** Long enough that the timer and the cloud round have moved on, short enough to feel live. */
 const REFRESH_MS = 60_000;
 
-type View = 'split' | 'list' | 'map';
+const TIERS: Tier[] = ['top', 'worth', 'other'];
+
+/** top/worth/other are names for the code. Each label carries the rule behind it. */
+const TIER_LABEL: Record<Tier, { short: string; rule: string }> = {
+  top: { short: 'W budżecie', rule: 'całość (najem + czynsz + media) do 2600 zł' },
+  worth: { short: 'Tani najem', rule: 'sam najem do 2200 zł, ale całość wychodzi drożej' },
+  other: { short: 'Odpada', rule: 'zła dzielnica albo za drogo' },
+};
+
+const CERTAINTY_LABEL: Record<string, string> = {
+  exact: 'z ogłoszenia',
+  all_in: 'wszystko w cenie',
+  estimated: 'czynsz szacowany',
+  uncertain: 'brak ceny',
+};
+
+function toggle<T>(values: T[], value: T): T[] {
+  return values.includes(value) ? values.filter((item) => item !== value) : [...values, value];
+}
 
 export function App() {
   const [offers, setOffers] = useState<Offer[]>([]);
@@ -22,7 +35,6 @@ export function App() {
   const [fetchedAt, setFetchedAt] = useState<string | null>(null);
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
   const [activeId, setActiveId] = useState<number | null>(null);
-  const [view, setView] = useState<View>('split');
 
   const load = useCallback(async (signal?: AbortSignal) => {
     const response = await fetch('/api/offers', signal ? { signal } : {});
@@ -71,128 +83,171 @@ export function App() {
 
   const districts = useMemo(() => availableDistricts(offers), [offers]);
   const visible = useMemo(() => applyFilters(offers, filters), [offers, filters]);
-  const counts = useMemo(
-    () => ({
-      top: offers.filter((offer) => offer.tier === 'top').length,
-      worth: offers.filter((offer) => offer.tier === 'worth').length,
-      mapped: visible.filter((offer) => offer.lat !== null).length,
-    }),
-    [offers, visible],
-  );
 
-  if (loading) {
-    return (
-      <main className="grid min-h-dvh place-items-center">
-        <div className="flex flex-col items-center gap-4 text-stone-400">
-          <RadarMark scanning />
-          <p className="text-sm">Szukam mieszkań…</p>
-        </div>
-      </main>
-    );
-  }
+  if (loading) return <p>Ładowanie...</p>;
 
   if (error !== null) {
     return (
-      <main className="grid min-h-dvh place-items-center p-6">
-        <div className="max-w-md rounded-2xl border border-red-500/30 bg-red-950/30 p-6 text-center">
-          <h1 className="text-lg font-semibold text-stone-100">Panel nie ma skąd wziąć danych</h1>
-          <p className="mt-2 text-sm text-stone-400">
-            Zwykle znaczy to, że nie działa API. Uruchom je w drugim terminalu:
-          </p>
-          <pre className="mt-3 rounded-lg bg-ash-950 px-3 py-2 text-sm text-ember-300">
-            pnpm serve
-          </pre>
-          <p className="mt-3 text-xs text-stone-500">{error}</p>
-        </div>
-      </main>
+      <div>
+        <p>
+          <strong>Panel nie ma skąd wziąć danych.</strong>
+        </p>
+        {/* Vite answers 500 when nothing is listening behind the proxy. */}
+        <p>Najczęstsza przyczyna: nie działa API. Uruchom je w drugim terminalu:</p>
+        <pre>pnpm serve</pre>
+        <p>
+          Szczegóły: <code>{error}</code>
+        </p>
+      </div>
     );
   }
 
   return (
-    <div className="mx-auto max-w-[110rem] px-4 pb-16 sm:px-6 lg:px-8">
-      <header className="flex flex-wrap items-center gap-4 py-6 sm:py-8">
-        <RadarMark scanning={syncing} />
-        <div className="mr-auto">
-          <h1 className="text-xl font-semibold tracking-tight text-stone-50 sm:text-2xl">
-            Flat<span className="text-ember-400">Radar</span>
-          </h1>
-          <p className="text-xs text-stone-500">Kraków · odświeżono {since(fetchedAt)}</p>
-        </div>
+    <main>
+      <h1>FlatRadar</h1>
+      <p>Kraków, odświeżono {since(fetchedAt)}</p>
 
-        {syncNote !== null && (
-          <span className="animate-rise rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-stone-300">
-            {syncNote}
-          </span>
-        )}
+      <p>
+        <button type="button" onClick={() => void sync()} disabled={syncing}>
+          {syncing ? 'Synchronizuję...' : 'Synchronizuj Otodom'}
+        </button>{' '}
+        {syncNote}
+      </p>
 
-        <button
-          type="button"
-          onClick={() => void sync()}
-          disabled={syncing}
-          className="group relative overflow-hidden rounded-full bg-gradient-to-r from-ember-500 to-red-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-ember-900/40 transition active:scale-95 disabled:opacity-60"
-        >
-          <span className="absolute inset-0 -translate-x-full bg-white/20 transition-transform duration-500 group-hover:translate-x-0" />
-          <span className="relative">{syncing ? 'Skanuję…' : 'Synchronizuj'}</span>
-        </button>
-      </header>
+      <fieldset>
+        <legend>Filtry</legend>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatTile label="W budżecie" value={String(counts.top)} accent />
-        <StatTile label="Tani najem" value={String(counts.worth)} />
-        <StatTile label="Widoczne" value={`${visible.length}/${offers.length}`} />
-        <StatTile label="Na mapie" value={String(counts.mapped)} />
-      </div>
+        <p>
+          <label>
+            Koszt całkowity maks. (zł){' '}
+            <input
+              type="number"
+              step={50}
+              value={filters.maxCostPln}
+              onChange={(event) =>
+                setFilters({ ...filters, maxCostPln: Number(event.target.value) })
+              }
+            />
+          </label>
+        </p>
 
-      <div className="mt-4">
-        <FilterBar filters={filters} districts={districts} onChange={setFilters} />
-      </div>
+        <p>
+          <label>
+            Metraż min. (m²){' '}
+            <input
+              type="number"
+              step={5}
+              value={filters.minAreaM2}
+              onChange={(event) =>
+                setFilters({ ...filters, minAreaM2: Number(event.target.value) })
+              }
+            />
+          </label>
+        </p>
 
-      <div className="mt-4 flex items-center gap-2 lg:hidden">
-        {(['split', 'list', 'map'] as View[]).map((option) => (
-          <button
-            key={option}
-            type="button"
-            onClick={() => setView(option)}
-            className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${
-              view === option
-                ? 'border-ember-500/60 bg-ember-500/15 text-ember-200'
-                : 'border-white/10 bg-white/5 text-stone-400'
-            }`}
-          >
-            {option === 'split' ? 'Oba' : option === 'list' ? 'Lista' : 'Mapa'}
+        <p>
+          Ocena:
+          <br />
+          {TIERS.map((tier) => (
+            <label key={tier} style={{ display: 'block' }}>
+              <input
+                type="checkbox"
+                checked={filters.tiers.includes(tier)}
+                onChange={() => setFilters({ ...filters, tiers: toggle(filters.tiers, tier) })}
+              />
+              <strong>{TIER_LABEL[tier].short}</strong> - {TIER_LABEL[tier].rule}
+            </label>
+          ))}
+        </p>
+
+        <p>
+          <label>
+            <input
+              type="checkbox"
+              checked={filters.privateOnly}
+              onChange={(event) => setFilters({ ...filters, privateOnly: event.target.checked })}
+            />
+            Tylko oferty prywatne
+          </label>
+        </p>
+
+        <p>
+          Dzielnice (nic zaznaczonego = wszystkie):
+          <br />
+          {districts.map((district) => (
+            <label key={district}>
+              <input
+                type="checkbox"
+                checked={filters.districts.includes(district)}
+                onChange={() =>
+                  setFilters({ ...filters, districts: toggle(filters.districts, district) })
+                }
+              />
+              {district}{' '}
+            </label>
+          ))}
+        </p>
+
+        <p>
+          <button type="button" onClick={() => setFilters(DEFAULT_FILTERS)}>
+            Reset
           </button>
-        ))}
+        </p>
+      </fieldset>
+
+      <p>
+        {visible.length} z {offers.length} ofert
+      </p>
+
+      <div style={{ height: '24rem', marginBottom: '1rem' }}>
+        <OfferMap offers={visible} activeId={activeId} onHover={setActiveId} />
       </div>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)]">
-        <div className={view === 'map' ? 'hidden lg:block' : ''}>
-          {visible.length === 0 ? (
-            <p className="rounded-2xl border border-white/10 bg-ash-900/60 p-8 text-center text-sm text-stone-400">
-              Nic nie pasuje do filtrów. Poluzuj koszt albo metraż.
-            </p>
-          ) : (
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {visible.map((offer, index) => (
-                <OfferCard
-                  key={offer.id}
-                  offer={offer}
-                  index={index}
-                  active={offer.id === activeId}
-                  onHover={setActiveId}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div
-          className={`lg:sticky lg:top-4 lg:h-[calc(100dvh-2rem)] ${
-            view === 'list' ? 'hidden lg:block' : ''
-          }`}
-        >
-          <OfferMap offers={visible} activeId={activeId} onHover={setActiveId} />
-        </div>
-      </div>
-    </div>
+      <table border={1} cellPadding={4}>
+        <thead>
+          <tr>
+            <th>Ocena</th>
+            <th>Dzielnica</th>
+            <th>Najem</th>
+            <th>Czynsz</th>
+            <th>Razem</th>
+            <th>Skąd kwota</th>
+            <th>m²</th>
+            <th>Pokoje</th>
+            <th>Kto</th>
+            <th>Ogłoszenie</th>
+          </tr>
+        </thead>
+        <tbody>
+          {visible.map((offer) => (
+            <tr
+              key={offer.id}
+              onMouseEnter={() => setActiveId(offer.id)}
+              onMouseLeave={() => setActiveId(null)}
+            >
+              <td title={TIER_LABEL[offer.tier].rule}>{TIER_LABEL[offer.tier].short}</td>
+              <td>{offer.district ?? '-'}</td>
+              <td>{pln(offer.pricePln)}</td>
+              <td>{pln(offer.rentPln)}</td>
+              <td>{pln(offer.totalCostPln)}</td>
+              <td title={offer.reasons.join(' ')}>
+                {CERTAINTY_LABEL[offer.costCertainty] ?? offer.costCertainty}
+              </td>
+              <td>{area(offer.areaM2)}</td>
+              <td>{offer.rooms ?? '-'}</td>
+              <td>
+                {offer.isPrivateOwner === null ? '-' : offer.isPrivateOwner ? 'prywatne' : 'firma'}
+              </td>
+              <td>
+                {/* React escapes the title, which is written by a stranger. */}
+                <a href={offer.url} target="_blank" rel="noreferrer noopener">
+                  {offer.title}
+                </a>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </main>
   );
 }
