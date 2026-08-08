@@ -1,8 +1,11 @@
 # Running FlatRadar unattended
 
-Two systemd user units. User units rather than system ones: this reads a database in a
-home directory and serves a page on loopback, so it has no business running as root or
-before anyone has logged in.
+Two systemd user units, for the half of the work that cannot run in the cloud: OLX
+answers 403 from datacenter addresses, so it is collected here while Otodom is collected
+by GitHub Actions. Nothing is lost while this machine is off except OLX.
+
+User units rather than system ones: this reads a hosted database and serves a page on
+loopback, so it has no business running as root or before anyone has logged in.
 
 Both assume the repo is at `~/Desktop/projects/flatradar`. If it lives elsewhere, edit
 `WorkingDirectory` in the two `.service` files.
@@ -14,7 +17,7 @@ mkdir -p ~/.config/systemd/user
 cp deploy/*.service deploy/*.timer ~/.config/systemd/user/
 systemctl --user daemon-reload
 
-systemctl --user enable --now flatradar-collect.timer   # collect every 15 minutes
+systemctl --user enable --now flatradar-collect.timer   # OLX every 15 minutes
 systemctl --user enable --now flatradar-api.service     # keep the dashboard's API up
 ```
 
