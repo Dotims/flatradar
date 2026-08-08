@@ -1,0 +1,24 @@
+name: Probe
+on: workflow_dispatch
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: What does OLX answer, and to what
+        run: |
+          U='https://www.olx.pl/api/v1/offers/?limit=1&category_id=15&city_id=8959'
+          p () { printf '%-42s %s\n' "$1" "$(curl -s -o /tmp/b -w '%{http_code}' "${@:2}" "$U")"; }
+          p 'honest UA'                 -A 'FlatRadar/0.1 (+repo)'
+          p 'no UA at all'              -H 'User-Agent:'
+          p 'curl default'
+          p 'browser UA'                -A 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0 Safari/537.36'
+          p 'browser UA + Accept'       -A 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0 Safari/537.36' -H 'Accept: application/json' -H 'Accept-Language: pl-PL,pl;q=0.9'
+          p 'browser UA + Referer'      -A 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0 Safari/537.36' -H 'Referer: https://www.olx.pl/'
+          p 'olx.pl homepage (HTML)'    -A 'FlatRadar/0.1 (+repo)' -o /dev/null -w '%{http_code}' 
+          echo '--- body of the 403 ---'
+          curl -s -A 'FlatRadar/0.1 (+repo)' "$U" | head -c 400
+          echo
+          echo '--- runner IP ---'
+          curl -s https://api.ipify.org; echo
