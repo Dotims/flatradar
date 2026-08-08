@@ -7,6 +7,13 @@ in the description) and pings Telegram when something lands in budget.
 It exists because checking the same listings several times a day is a waste of time,
 and the good ones in Kraków are gone within hours.
 
+## Where it runs
+
+Otodom is collected by GitHub Actions every fifteen minutes, writing to Neon. OLX
+answers 403 from datacenter addresses, so it is collected from a machine on an ordinary
+connection instead of being disguised into getting through. `FLATRADAR_SOURCES` picks
+which portals a round asks for.
+
 ## Status
 
 Early. Working: OLX collection and classification into tiers. Missing: Otodom, Telegram,

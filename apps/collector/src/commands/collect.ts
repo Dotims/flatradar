@@ -4,7 +4,25 @@ import { classifyOffers } from './classify.ts';
 import { collectOlx } from './collect-olx.ts';
 import { collectOtodom } from './collect-otodom.ts';
 
-/** One full round: both portals, then the verdicts. */
+const COLLECTORS = { olx: collectOlx, otodom: collectOtodom } as const;
+type SourceName = keyof typeof COLLECTORS;
+
+/**
+ * OLX answers 403 from datacenter addresses, so the scheduled cloud round asks for
+ * Otodom only and OLX is collected from a machine on a normal connection.
+ */
+function requestedSources(): SourceName[] {
+  const raw = process.env.FLATRADAR_SOURCES;
+  if (raw === undefined || raw.trim() === '') return ['olx', 'otodom'];
+
+  return raw.split(',').map((name) => {
+    const source = name.trim().toLowerCase();
+    if (source in COLLECTORS) return source as SourceName;
+    throw new Error(`Unknown source "${source}" in FLATRADAR_SOURCES.`);
+  });
+}
+
+/** One full round: the requested portals, then the verdicts. */
 export async function collectAll(): Promise<void> {
   const sql = openDatabase();
   const failures: string[] = [];
@@ -12,12 +30,9 @@ export async function collectAll(): Promise<void> {
   try {
     await migrate(sql);
 
-    for (const [name, collect] of [
-      ['OLX', collectOlx],
-      ['Otodom', collectOtodom],
-    ] as const) {
+    for (const name of requestedSources()) {
       try {
-        await collect(sql);
+        await COLLECTORS[name](sql);
       } catch (error) {
         const reason = error instanceof Error ? error.message : String(error);
         console.error(`${name} failed: ${reason}`);

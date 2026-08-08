@@ -9,6 +9,9 @@ Type=oneshot
 WorkingDirectory=%h/Desktop/projects/flatradar
 # node is called directly rather than through pnpm: a systemd unit does not inherit the
 # shell PATH, and pnpm lives in a directory only interactive shells know about.
+# Only OLX: Otodom is collected in the cloud, which OLX refuses from datacenter IPs.
+Environment=FLATRADAR_SOURCES=olx
+EnvironmentFile=%h/Desktop/projects/flatradar/.env
 ExecStart=/usr/bin/node apps/collector/src/commands/collect.ts
 
 # A round that hangs must not block the next one. Fetching two portals takes seconds;
