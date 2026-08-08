@@ -1,30 +1,28 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { FilterRail } from './components/FilterRail.tsx';
+import { OfferCard } from './components/OfferCard.tsx';
 import { OfferMap } from './components/OfferMap.tsx';
+import { PipelineGraph } from './components/PipelineGraph.tsx';
 import { applyFilters, availableDistricts, DEFAULT_FILTERS, type Filters } from './filters.ts';
-import { area, pln, since } from './format.ts';
+import { since } from './format.ts';
 import type { Offer, Tier } from './types.ts';
 
+/*
+  THESIS: a flat search is a pipeline with a verdict at the end, so the surface opens on
+  the pipeline itself rather than the dashboard's usual row of stat tiles.
+  OWN-WORLD: true black ground, graphite panels, 1px lines, no shadows; one warm
+  yellow-orange accent that lights only what is decided; monospace on every number,
+  parameter and tag, sans for prose.
+  STORY: the visitor sees where listings come from and what happened to them, reads the
+  ones that survived, then checks where they are.
+  FIRST VIEWPORT: the graph across the top, sources left, rules lit in the middle, tiers
+  right; the sync action sits in the masthead beside the freshness stamp.
+  FORM: node-graph pipeline, pinned by the brief, no roll run.
+  FINISH: unreviewed and undocumented is unfinished; this build ends with the finish
+  review, the verdict, and DESIGN.md
+*/
+
 const REFRESH_MS = 60_000;
-
-const TIERS: Tier[] = ['top', 'worth', 'other'];
-
-/** top/worth/other are names for the code. Each label carries the rule behind it. */
-const TIER_LABEL: Record<Tier, { short: string; rule: string }> = {
-  top: { short: 'W budżecie', rule: 'całość (najem + czynsz + media) do 2600 zł' },
-  worth: { short: 'Tani najem', rule: 'sam najem do 2200 zł, ale całość wychodzi drożej' },
-  other: { short: 'Odpada', rule: 'zła dzielnica albo za drogo' },
-};
-
-const CERTAINTY_LABEL: Record<string, string> = {
-  exact: 'z ogłoszenia',
-  all_in: 'wszystko w cenie',
-  estimated: 'czynsz szacowany',
-  uncertain: 'brak ceny',
-};
-
-function toggle<T>(values: T[], value: T): T[] {
-  return values.includes(value) ? values.filter((item) => item !== value) : [...values, value];
-}
 
 export function App() {
   const [offers, setOffers] = useState<Offer[]>([]);
@@ -73,9 +71,9 @@ export function App() {
       if (!response.ok) throw new Error(body.error ?? `API odpowiedziało ${response.status}`);
 
       await load();
-      setSyncNote(body.added === 0 ? 'Brak nowych ofert' : `Nowe oferty: ${body.added}`);
+      setSyncNote(body.added === 0 ? 'bez nowych' : `nowe: ${body.added}`);
     } catch (cause) {
-      setSyncNote(cause instanceof Error ? cause.message : 'Synchronizacja nie powiodła się');
+      setSyncNote(cause instanceof Error ? cause.message : 'synchronizacja nie powiodła się');
     } finally {
       setSyncing(false);
     }
@@ -84,170 +82,115 @@ export function App() {
   const districts = useMemo(() => availableDistricts(offers), [offers]);
   const visible = useMemo(() => applyFilters(offers, filters), [offers, filters]);
 
-  if (loading) return <p>Ładowanie...</p>;
+  const counts = useMemo(() => {
+    const tiers: Record<Tier, number> = { top: 0, worth: 0, other: 0 };
+    for (const offer of offers) tiers[offer.tier]++;
+
+    return {
+      olx: offers.filter((offer) => offer.source === 'olx').length,
+      otodom: offers.filter((offer) => offer.source === 'otodom').length,
+      total: offers.length,
+      tiers,
+    };
+  }, [offers]);
+
+  if (loading) {
+    return (
+      <main className="grid min-h-dvh place-items-center">
+        <p className="tag animate-drift">skanuję</p>
+      </main>
+    );
+  }
 
   if (error !== null) {
     return (
-      <div>
-        <p>
-          <strong>Panel nie ma skąd wziąć danych.</strong>
-        </p>
-        {/* Vite answers 500 when nothing is listening behind the proxy. */}
-        <p>Najczęstsza przyczyna: nie działa API. Uruchom je w drugim terminalu:</p>
-        <pre>pnpm serve</pre>
-        <p>
-          Szczegóły: <code>{error}</code>
-        </p>
-      </div>
+      <main className="grid min-h-dvh place-items-center px-6">
+        <div className="rule max-w-md rounded-xl bg-graphite-950 p-6">
+          <h1 className="text-lg font-medium text-ink">Panel nie ma skąd wziąć danych</h1>
+          <p className="mt-2 text-sm text-ink-dim">
+            Zwykle znaczy to, że nie działa API. Uruchom je w drugim terminalu:
+          </p>
+          <pre className="rule mt-3 rounded-lg bg-void px-3 py-2 font-mono text-sm text-signal-300">
+            pnpm serve
+          </pre>
+          <p className="tag mt-3 normal-case">{error}</p>
+        </div>
+      </main>
     );
   }
 
   return (
-    <main>
-      <h1>FlatRadar</h1>
-      <p>Kraków, odświeżono {since(fetchedAt)}</p>
+    <div className="mx-auto max-w-[100rem] px-5 pb-24 sm:px-8 lg:px-12">
+      <header className="flex flex-wrap items-center justify-between gap-x-8 gap-y-4 py-8 lg:py-12">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Flat<span className="lit">Radar</span>
+          </h1>
+          <p className="tag mt-1 normal-case">Kraków · odczyt {since(fetchedAt)}</p>
+        </div>
 
-      <p>
-        <button type="button" onClick={() => void sync()} disabled={syncing}>
-          {syncing ? 'Synchronizuję...' : 'Synchronizuj Otodom'}
-        </button>{' '}
-        {syncNote}
-      </p>
-
-      <fieldset>
-        <legend>Filtry</legend>
-
-        <p>
-          <label>
-            Koszt całkowity maks. (zł){' '}
-            <input
-              type="number"
-              step={50}
-              value={filters.maxCostPln}
-              onChange={(event) =>
-                setFilters({ ...filters, maxCostPln: Number(event.target.value) })
-              }
-            />
-          </label>
-        </p>
-
-        <p>
-          <label>
-            Metraż min. (m²){' '}
-            <input
-              type="number"
-              step={5}
-              value={filters.minAreaM2}
-              onChange={(event) =>
-                setFilters({ ...filters, minAreaM2: Number(event.target.value) })
-              }
-            />
-          </label>
-        </p>
-
-        <p>
-          Ocena:
-          <br />
-          {TIERS.map((tier) => (
-            <label key={tier} style={{ display: 'block' }}>
-              <input
-                type="checkbox"
-                checked={filters.tiers.includes(tier)}
-                onChange={() => setFilters({ ...filters, tiers: toggle(filters.tiers, tier) })}
-              />
-              <strong>{TIER_LABEL[tier].short}</strong> - {TIER_LABEL[tier].rule}
-            </label>
-          ))}
-        </p>
-
-        <p>
-          <label>
-            <input
-              type="checkbox"
-              checked={filters.privateOnly}
-              onChange={(event) => setFilters({ ...filters, privateOnly: event.target.checked })}
-            />
-            Tylko oferty prywatne
-          </label>
-        </p>
-
-        <p>
-          Dzielnice (nic zaznaczonego = wszystkie):
-          <br />
-          {districts.map((district) => (
-            <label key={district}>
-              <input
-                type="checkbox"
-                checked={filters.districts.includes(district)}
-                onChange={() =>
-                  setFilters({ ...filters, districts: toggle(filters.districts, district) })
-                }
-              />
-              {district}{' '}
-            </label>
-          ))}
-        </p>
-
-        <p>
-          <button type="button" onClick={() => setFilters(DEFAULT_FILTERS)}>
-            Reset
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          {syncNote !== null && <span className="tag normal-case">{syncNote}</span>}
+          <button
+            type="button"
+            onClick={() => void sync()}
+            disabled={syncing}
+            className="rounded-full bg-gradient-to-r from-signal-400 to-signal-600 px-5 py-2 font-mono text-[0.6875rem] tracking-[0.08em] text-void uppercase transition-opacity duration-150 hover:opacity-90 disabled:opacity-50"
+          >
+            {syncing ? 'skanuję…' : 'synchronizuj'}
           </button>
-        </p>
-      </fieldset>
+        </div>
+      </header>
 
-      <p>
-        {visible.length} z {offers.length} ofert
-      </p>
+      <PipelineGraph
+        counts={counts}
+        rulesVersion="v3"
+        selectedTiers={filters.tiers}
+        onToggleTier={(tier) =>
+          setFilters({
+            ...filters,
+            tiers: filters.tiers.includes(tier)
+              ? filters.tiers.filter((item) => item !== tier)
+              : [...filters.tiers, tier],
+          })
+        }
+      />
 
-      <div style={{ height: '24rem', marginBottom: '1rem' }}>
-        <OfferMap offers={visible} activeId={activeId} onHover={setActiveId} />
+      <div className="mt-12 grid gap-10 lg:mt-16 lg:grid-cols-[15rem_minmax(0,1fr)] lg:gap-12">
+        <aside className="lg:sticky lg:top-8 lg:self-start">
+          <FilterRail filters={filters} districts={districts} onChange={setFilters} />
+        </aside>
+
+        <div className="min-w-0">
+          <div className="flex items-baseline justify-between border-b border-line pb-3">
+            <h2 className="text-sm font-medium text-ink-dim">Oferty</h2>
+            <span className="num text-xs text-ink-faint">
+              {visible.length} / {offers.length}
+            </span>
+          </div>
+
+          <div className="mt-6 h-72 sm:h-96">
+            <OfferMap offers={visible} activeId={activeId} onHover={setActiveId} />
+          </div>
+
+          {visible.length === 0 ? (
+            <p className="rule mt-6 rounded-xl bg-graphite-950 p-10 text-center text-sm text-ink-dim">
+              Nic nie pasuje do filtrów. Poluzuj koszt albo metraż.
+            </p>
+          ) : (
+            <div className="mt-6 grid gap-3 xl:grid-cols-2">
+              {visible.map((offer) => (
+                <OfferCard
+                  key={offer.id}
+                  offer={offer}
+                  active={offer.id === activeId}
+                  onHover={setActiveId}
+                />
+              ))}
+            </div>
+          )}
+        </div>
       </div>
-
-      <table border={1} cellPadding={4}>
-        <thead>
-          <tr>
-            <th>Ocena</th>
-            <th>Dzielnica</th>
-            <th>Najem</th>
-            <th>Czynsz</th>
-            <th>Razem</th>
-            <th>Skąd kwota</th>
-            <th>m²</th>
-            <th>Pokoje</th>
-            <th>Kto</th>
-            <th>Ogłoszenie</th>
-          </tr>
-        </thead>
-        <tbody>
-          {visible.map((offer) => (
-            <tr
-              key={offer.id}
-              onMouseEnter={() => setActiveId(offer.id)}
-              onMouseLeave={() => setActiveId(null)}
-            >
-              <td title={TIER_LABEL[offer.tier].rule}>{TIER_LABEL[offer.tier].short}</td>
-              <td>{offer.district ?? '-'}</td>
-              <td>{pln(offer.pricePln)}</td>
-              <td>{pln(offer.rentPln)}</td>
-              <td>{pln(offer.totalCostPln)}</td>
-              <td title={offer.reasons.join(' ')}>
-                {CERTAINTY_LABEL[offer.costCertainty] ?? offer.costCertainty}
-              </td>
-              <td>{area(offer.areaM2)}</td>
-              <td>{offer.rooms ?? '-'}</td>
-              <td>
-                {offer.isPrivateOwner === null ? '-' : offer.isPrivateOwner ? 'prywatne' : 'firma'}
-              </td>
-              <td>
-                {/* React escapes the title, which is written by a stranger. */}
-                <a href={offer.url} target="_blank" rel="noreferrer noopener">
-                  {offer.title}
-                </a>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </main>
+    </div>
   );
 }
