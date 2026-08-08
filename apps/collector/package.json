@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "typecheck": "tsc --noEmit",
+    "test": "node --test",
     "migrate": "node src/db/migrate.ts",
-    "status": "node src/index.ts"
+    "status": "node src/index.ts",
+    "collect:olx": "node src/commands/collect-olx.ts"
   }
 }
