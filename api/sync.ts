@@ -1,19 +1,22 @@
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { syncOtodom } from '../apps/collector/src/api/handlers.ts';
 import { openDatabase } from '../apps/collector/src/db/client.ts';
 
-export default async function handler(request: Request): Promise<Response> {
+export default async function handler(
+  request: VercelRequest,
+  response: VercelResponse,
+): Promise<void> {
   if (request.method !== 'POST') {
-    return Response.json({ error: 'Only POST is supported.' }, { status: 405 });
+    response.status(405).json({ error: 'Only POST is supported.' });
+    return;
   }
 
   const sql = openDatabase();
   try {
-    return Response.json(await syncOtodom(sql));
+    response.status(200).json(await syncOtodom(sql));
   } catch (error) {
-    return Response.json(
-      { error: error instanceof Error ? error.message : 'Sync failed.' },
-      { status: 500 },
-    );
+    console.error(error);
+    response.status(500).json({ error: error instanceof Error ? error.message : 'Sync failed.' });
   } finally {
     await sql.end();
   }

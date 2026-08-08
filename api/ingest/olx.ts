@@ -1,29 +1,31 @@
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { assertIngestAllowed, ingestOlx } from '../../apps/collector/src/api/handlers.ts';
 import { openDatabase } from '../../apps/collector/src/db/client.ts';
 
 /** OLX will not answer this server, so a device on an ordinary connection posts here. */
-export default async function handler(request: Request): Promise<Response> {
+export default async function handler(
+  request: VercelRequest,
+  response: VercelResponse,
+): Promise<void> {
   if (request.method !== 'POST') {
-    return Response.json({ error: 'Only POST is supported.' }, { status: 405 });
+    response.status(405).json({ error: 'Only POST is supported.' });
+    return;
   }
 
   try {
-    assertIngestAllowed(request.headers.get('x-flatradar-token'));
+    const presented = request.headers['x-flatradar-token'];
+    assertIngestAllowed(typeof presented === 'string' ? presented : null);
   } catch (error) {
-    return Response.json(
-      { error: error instanceof Error ? error.message : 'Refused.' },
-      { status: 401 },
-    );
+    response.status(401).json({ error: error instanceof Error ? error.message : 'Refused.' });
+    return;
   }
 
   const sql = openDatabase();
   try {
-    return Response.json(await ingestOlx(sql, await request.json()));
+    response.status(200).json(await ingestOlx(sql, request.body));
   } catch (error) {
-    return Response.json(
-      { error: error instanceof Error ? error.message : 'Ingest failed.' },
-      { status: 400 },
-    );
+    console.error(error);
+    response.status(400).json({ error: error instanceof Error ? error.message : 'Ingest failed.' });
   } finally {
     await sql.end();
   }
