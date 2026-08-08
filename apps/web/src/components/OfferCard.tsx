@@ -28,7 +28,7 @@ export function OfferCard({
             <span className={`tag ${offer.tier === 'top' ? 'text-signal-400' : ''}`}>
               {tier.label}
             </span>
-            <span className="tag text-ink-faint/70">/ {offer.source}</span>
+            <span className="tag">/ {offer.source}</span>
             {offer.isPrivateOwner === true && <span className="tag">/ prywatne</span>}
           </div>
 
@@ -36,7 +36,8 @@ export function OfferCard({
             href={offer.url}
             target="_blank"
             rel="noreferrer noopener"
-            className="mt-2 block text-[0.95rem] leading-snug font-medium text-ink underline-offset-4 transition-colors hover:text-signal-300 hover:underline"
+            title={offer.title}
+            className="mt-2 line-clamp-2 block text-[0.95rem] leading-snug font-medium text-ink wrap-anywhere underline-offset-4 transition-colors hover:text-signal-300 hover:underline"
           >
             {offer.title}
           </a>
@@ -59,7 +60,7 @@ export function OfferCard({
           ['dzielnica', offer.district ?? 'brak'],
           ['metraż', area(offer.areaM2)],
           ['pokoje', rooms(offer.rooms)],
-          ['za m²', pricePerM2(offer.pricePln, offer.areaM2)],
+          ['najem za m²', pricePerM2(offer.pricePln, offer.areaM2)],
         ].map(([label, value]) => (
           <div key={label}>
             <dt className="tag">{label}</dt>
@@ -70,7 +71,9 @@ export function OfferCard({
 
       <div className="mt-3 flex items-center justify-between gap-3 text-xs">
         <span className="num text-ink-faint">
-          {pln(offer.pricePln)} + {pln(offer.rentPln)}
+          {offer.rentPln === null
+            ? `${pln(offer.pricePln)} · czynsz niepodany`
+            : `${pln(offer.pricePln)} + ${pln(offer.rentPln)} czynszu`}
         </span>
         <span className="num text-ink-faint">{since(offer.createdAtSource)}</span>
       </div>

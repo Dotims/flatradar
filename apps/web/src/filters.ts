@@ -23,10 +23,17 @@ export const NO_DISTRICT = '(brak dzielnicy)';
 /**
  * Free of React so it can be tested directly. A listing missing the value a filter asks
  * about is kept: half the portal fields are optional.
+ *
+ * The cost cap does not apply to `worth`. That tier is defined as a total above the
+ * all-in limit, so capping it by total made the whole tier unreachable whenever the cap
+ * sat at the budget: the pill was lit, the count said six, and the list held none.
  */
 export function applyFilters(offers: Offer[], filters: Filters): Offer[] {
   return offers.filter((offer) => {
-    if (offer.totalCostPln !== null && offer.totalCostPln > filters.maxCostPln) return false;
+    const cappedByCost = offer.tier !== 'worth';
+    if (cappedByCost && offer.totalCostPln !== null && offer.totalCostPln > filters.maxCostPln) {
+      return false;
+    }
     if (offer.areaM2 !== null && offer.areaM2 < filters.minAreaM2) return false;
     if (filters.tiers.length > 0 && !filters.tiers.includes(offer.tier)) return false;
     if (filters.privateOnly && offer.isPrivateOwner === false) return false;

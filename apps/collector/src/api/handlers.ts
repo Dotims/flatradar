@@ -1,6 +1,7 @@
 import type { Sql } from '../db/client.ts';
 import { listClassifiedOffers, type ClassifiedOffer } from '../db/classifications.ts';
 import { upsertOffer } from '../db/offers.ts';
+import { listSourceStatus, type SourceStatus } from '../db/runs.ts';
 import { classifyOffers } from '../commands/classify.ts';
 import { collectOtodom } from '../commands/collect-otodom.ts';
 import { parseOlxOffer } from '../sources/olx/parse.ts';
@@ -27,8 +28,11 @@ export interface SyncResult {
   tiers: Record<string, number>;
 }
 
-export async function readOffers(sql: Sql): Promise<{ offers: ClassifiedOffer[] }> {
-  return { offers: await listClassifiedOffers(sql) };
+export async function readOffers(
+  sql: Sql,
+): Promise<{ offers: ClassifiedOffer[]; sources: SourceStatus[] }> {
+  const [offers, sources] = await Promise.all([listClassifiedOffers(sql), listSourceStatus(sql)]);
+  return { offers, sources };
 }
 
 /** Otodom only: OLX refuses datacenter addresses, and this runs on one. */

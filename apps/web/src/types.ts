@@ -27,3 +27,11 @@ export interface Offer {
   createdAtSource: string | null;
   firstSeenAt: string;
 }
+
+/** When each portal was last collected, and whether that round worked. */
+export interface SourceStatus {
+  source: string;
+  lastCollectedAt: string | null;
+  ok: boolean | null;
+  itemsSeen: number;
+}

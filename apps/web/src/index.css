@@ -77,6 +77,14 @@
   }
 }
 
+@layer components {
+  /* Not @utility: the border shorthand there outranks border-* utilities declared
+     earlier in the same layer, which silently reset every accent border colour. */
+  .rule {
+    border: 1px solid var(--color-line);
+  }
+}
+
 @utility lit {
   color: var(--color-signal-300);
   font-style: italic;
@@ -87,10 +95,6 @@
 @utility lit-num {
   color: var(--color-signal-300);
   text-shadow: 0 0 18px --alpha(var(--color-signal-400) / 45%);
-}
-
-@utility rule {
-  border: 1px solid var(--color-line);
 }
 
 /* Leaflet ships its own light chrome; these pull it onto the black ground. */

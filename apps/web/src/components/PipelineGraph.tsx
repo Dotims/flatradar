@@ -1,4 +1,8 @@
-import type { Tier } from '../types.ts';
+import { minutesSince, since } from '../format.ts';
+import type { SourceStatus, Tier } from '../types.ts';
+
+/** Past this, a feed is old enough that the number on screen may not be reality. */
+const STALE_AFTER_MIN = 40;
 
 type MarkKind = 'feed' | 'rules' | 'pass' | 'partial' | 'reject';
 
@@ -26,6 +30,31 @@ export interface PipelineCounts {
   tiers: Record<Tier, number>;
 }
 
+type Health = 'fresh' | 'stale' | 'failed' | 'unknown';
+
+function health(status: SourceStatus | undefined): Health {
+  if (status === undefined) return 'unknown';
+  if (status.ok === false) return 'failed';
+
+  const age = minutesSince(status.lastCollectedAt);
+  if (age === null) return 'unknown';
+  return age > STALE_AFTER_MIN ? 'stale' : 'fresh';
+}
+
+/** The caption under a source count: when it last ran, and whether that run worked. */
+function sourceCaption(status: SourceStatus | undefined, fallback: string): string {
+  if (status === undefined) return fallback;
+  if (status.ok === false) return `zbiór nie powiódł się · ${since(status.lastCollectedAt)}`;
+  return `zebrano ${since(status.lastCollectedAt)}`;
+}
+
+const HEALTH_TONE: Record<Health, string> = {
+  fresh: '',
+  stale: 'text-amber-400',
+  failed: 'text-red-400',
+  unknown: '',
+};
+
 /**
  * Percent anchors shared by the SVG connectors and the absolutely placed nodes, so the
  * lines meet the boxes at every width. Only used from lg up.
@@ -48,6 +77,7 @@ function Node({
   mark,
   accent = false,
   selected,
+  liveTone = '',
   onToggle,
 }: {
   label: string;
@@ -57,6 +87,7 @@ function Node({
   mark: MarkKind;
   accent?: boolean;
   selected?: boolean;
+  liveTone?: string;
   onToggle?: () => void;
 }) {
   const Tag = onToggle === undefined ? 'div' : 'button';
@@ -87,7 +118,7 @@ function Node({
         </span>
         {unit !== undefined && <span className="num text-xs text-ink-faint">{unit}</span>}
       </div>
-      {live !== undefined && <div className="tag mt-1.5 normal-case">{live}</div>}
+      {live !== undefined && <div className={`tag mt-1.5 normal-case ${liveTone}`}>{live}</div>}
     </Tag>
   );
 }
@@ -95,14 +126,19 @@ function Node({
 export function PipelineGraph({
   counts,
   rulesVersion,
+  sources,
   selectedTiers,
   onToggleTier,
 }: {
   counts: PipelineCounts;
   rulesVersion: string;
+  sources: SourceStatus[];
   selectedTiers: Tier[];
   onToggleTier: (tier: Tier) => void;
 }) {
+  const byName = (name: string) => sources.find((status) => status.source === name);
+  const olxStatus = byName('olx');
+  const otodomStatus = byName('otodom');
   const TIER_MARK: Record<Tier, MarkKind> = { top: 'pass', worth: 'partial', other: 'reject' };
 
   const tierNode = (tier: Tier, label: string, unit: string, accent = false) => (
@@ -123,7 +159,8 @@ export function PipelineGraph({
         label="olx"
         value={String(counts.olx)}
         unit="ofert"
-        live="z łącza domowego"
+        live={sourceCaption(olxStatus, 'z łącza domowego')}
+        liveTone={HEALTH_TONE[health(olxStatus)]}
         mark="feed"
       />
     ),
@@ -132,7 +169,8 @@ export function PipelineGraph({
         label="otodom"
         value={String(counts.otodom)}
         unit="ofert"
-        live="co 15 min, w chmurze"
+        live={sourceCaption(otodomStatus, 'co 15 min, w chmurze')}
+        liveTone={HEALTH_TONE[health(otodomStatus)]}
         mark="feed"
       />
     ),

@@ -4,8 +4,8 @@ import { OfferCard } from './components/OfferCard.tsx';
 import { OfferMap } from './components/OfferMap.tsx';
 import { PipelineGraph } from './components/PipelineGraph.tsx';
 import { applyFilters, availableDistricts, DEFAULT_FILTERS, type Filters } from './filters.ts';
-import { since } from './format.ts';
-import type { Offer, Tier } from './types.ts';
+import { minutesSince, since } from './format.ts';
+import type { Offer, SourceStatus, Tier } from './types.ts';
 
 /*
   THESIS: a flat search is a pipeline with a verdict at the end, so the surface opens on
@@ -24,13 +24,19 @@ import type { Offer, Tier } from './types.ts';
 
 const REFRESH_MS = 60_000;
 
+/** A background poll may fail quietly once; two in a row means the API is gone. */
+const FAILURES_BEFORE_DISCONNECTED = 2;
+
+type SyncNote = { kind: 'ok' | 'error'; text: string };
+
 export function App() {
   const [offers, setOffers] = useState<Offer[]>([]);
+  const [sources, setSources] = useState<SourceStatus[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [disconnected, setDisconnected] = useState(false);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
-  const [syncNote, setSyncNote] = useState<string | null>(null);
-  const [fetchedAt, setFetchedAt] = useState<string | null>(null);
+  const [syncNote, setSyncNote] = useState<SyncNote | null>(null);
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
   const [activeId, setActiveId] = useState<number | null>(null);
 
@@ -38,10 +44,11 @@ export function App() {
     const response = await fetch('/api/offers', signal ? { signal } : {});
     if (!response.ok) throw new Error(`API odpowiedziało ${response.status}`);
 
-    const body = (await response.json()) as { offers: Offer[] };
+    const body = (await response.json()) as { offers: Offer[]; sources?: SourceStatus[] };
     setOffers(body.offers);
-    setFetchedAt(new Date().toISOString());
+    setSources(body.sources ?? []);
     setError(null);
+    setDisconnected(false);
   }, []);
 
   useEffect(() => {
@@ -54,7 +61,19 @@ export function App() {
       })
       .finally(() => setLoading(false));
 
-    const timer = setInterval(() => void load().catch(() => undefined), REFRESH_MS);
+    // A swallowed poll failure used to leave the header claiming freshness forever.
+    let consecutiveFailures = 0;
+    const timer = setInterval(() => {
+      void load()
+        .then(() => {
+          consecutiveFailures = 0;
+        })
+        .catch(() => {
+          consecutiveFailures++;
+          if (consecutiveFailures >= FAILURES_BEFORE_DISCONNECTED) setDisconnected(true);
+        });
+    }, REFRESH_MS);
+
     return () => {
       controller.abort();
       clearInterval(timer);
@@ -71,16 +90,61 @@ export function App() {
       if (!response.ok) throw new Error(body.error ?? `API odpowiedziało ${response.status}`);
 
       await load();
-      setSyncNote(body.added === 0 ? 'bez nowych' : `nowe: ${body.added}`);
+      setSyncNote({
+        kind: 'ok',
+        text: body.added === 0 ? 'bez nowych ofert' : `nowe oferty: ${body.added}`,
+      });
     } catch (cause) {
-      setSyncNote(cause instanceof Error ? cause.message : 'synchronizacja nie powiodła się');
+      setSyncNote({
+        kind: 'error',
+        text: cause instanceof Error ? cause.message : 'synchronizacja nie powiodła się',
+      });
     } finally {
       setSyncing(false);
     }
   }
 
+  /**
+   * The header reports the feed that ran longest ago, because the page is only as
+   * current as its stalest source. A failed round counts as no round.
+   */
+  const oldestFeed = useMemo(() => {
+    const usable = sources.filter(
+      (status) => status.ok !== false && status.lastCollectedAt !== null,
+    );
+    if (usable.length === 0) return { label: 'nieznany', stale: true };
+
+    const oldest = usable.reduce((worst, status) =>
+      (minutesSince(status.lastCollectedAt) ?? 0) > (minutesSince(worst.lastCollectedAt) ?? 0)
+        ? status
+        : worst,
+    );
+
+    return {
+      label: since(oldest.lastCollectedAt),
+      stale: (minutesSince(oldest.lastCollectedAt) ?? 0) > 40,
+    };
+  }, [sources]);
+
   const districts = useMemo(() => availableDistricts(offers), [offers]);
   const visible = useMemo(() => applyFilters(offers, filters), [offers, filters]);
+
+  /** Names the filter actually responsible, rather than the two easiest to mention. */
+  const activeFilterHint = useMemo(() => {
+    const narrowed: string[] = [];
+    if (filters.districts.length > 0) narrowed.push(`dzielnice (${filters.districts.length})`);
+    if (filters.privateOnly) narrowed.push('tylko prywatne');
+    if (filters.minAreaM2 > 0) narrowed.push(`metraż od ${filters.minAreaM2} m²`);
+    if (filters.tiers.length < 3) narrowed.push('ocena');
+    narrowed.push(`koszt do ${filters.maxCostPln} zł`);
+
+    return narrowed.length === 0 ? null : `Zawężają: ${narrowed.join(', ')}.`;
+  }, [filters]);
+
+  const withoutLocation = useMemo(
+    () => visible.filter((offer) => offer.lat === null).length,
+    [visible],
+  );
 
   const counts = useMemo(() => {
     const tiers: Record<Tier, number> = { top: 0, worth: 0, other: 0 };
@@ -126,11 +190,27 @@ export function App() {
           <h1 className="text-2xl font-semibold tracking-tight">
             Flat<span className="lit">Radar</span>
           </h1>
-          <p className="tag mt-1 normal-case">Kraków · odczyt {since(fetchedAt)}</p>
+          <p className="tag mt-1 normal-case">
+            Kraków ·{' '}
+            {disconnected ? (
+              <span className="text-red-400">brak połączenia z API</span>
+            ) : (
+              <span className={oldestFeed.stale ? 'text-amber-400' : ''}>
+                najstarszy zbiór {oldestFeed.label}
+              </span>
+            )}
+          </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-          {syncNote !== null && <span className="tag normal-case">{syncNote}</span>}
+          {syncNote !== null && (
+            <span
+              role="status"
+              className={`tag normal-case ${syncNote.kind === 'error' ? 'text-red-400' : ''}`}
+            >
+              {syncNote.text}
+            </span>
+          )}
           <button
             type="button"
             onClick={() => void sync()}
@@ -145,6 +225,7 @@ export function App() {
       <PipelineGraph
         counts={counts}
         rulesVersion="v3"
+        sources={sources}
         selectedTiers={filters.tiers}
         onToggleTier={(tier) =>
           setFilters({
@@ -164,8 +245,11 @@ export function App() {
         <div className="min-w-0">
           <div className="flex items-baseline justify-between border-b border-line pb-3">
             <h2 className="text-sm font-medium text-ink-dim">Oferty</h2>
-            <span className="num text-xs text-ink-faint">
+            <span aria-live="polite" className="num text-xs text-ink-faint">
               {visible.length} / {offers.length}
+              {withoutLocation > 0 && (
+                <span className="ml-2 text-ink-faint">· {withoutLocation} bez lokalizacji</span>
+              )}
             </span>
           </div>
 
@@ -175,19 +259,21 @@ export function App() {
 
           {visible.length === 0 ? (
             <p className="rule mt-6 rounded-xl bg-graphite-950 p-10 text-center text-sm text-ink-dim">
-              Nic nie pasuje do filtrów. Poluzuj koszt albo metraż.
+              {offers.length === 0
+                ? 'Baza jest pusta. Uruchom zbieranie: pnpm collect.'
+                : `Żadna z ${offers.length} ofert nie pasuje do filtrów.`}
+              {activeFilterHint !== null && (
+                <span className="mt-2 block text-ink-faint">{activeFilterHint}</span>
+              )}
             </p>
           ) : (
-            <div className="mt-6 grid gap-3 xl:grid-cols-2">
+            <ul className="mt-6 grid list-none gap-3 xl:grid-cols-2">
               {visible.map((offer) => (
-                <OfferCard
-                  key={offer.id}
-                  offer={offer}
-                  active={offer.id === activeId}
-                  onHover={setActiveId}
-                />
+                <li key={offer.id}>
+                  <OfferCard offer={offer} active={offer.id === activeId} onHover={setActiveId} />
+                </li>
               ))}
-            </div>
+            </ul>
           )}
         </div>
       </div>

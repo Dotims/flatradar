@@ -38,6 +38,22 @@ test('drops a listing above the cost limit', () => {
   assert.equal(applyFilters(offers, { ...DEFAULT_FILTERS, maxCostPln: 2600 }).length, 0);
 });
 
+test('the cost limit does not apply to the cheap-rent tier', () => {
+  // That tier is defined as a total above the all-in limit, so capping it by total hid
+  // the entire tier whenever the cap sat at the budget.
+  const offers = [offer({ tier: 'worth', totalCostPln: 3050 })];
+  assert.equal(applyFilters(offers, { ...DEFAULT_FILTERS, maxCostPln: 2600 }).length, 1);
+});
+
+test('the shipped defaults can return every tier they ask for', () => {
+  const offers = [
+    offer({ id: 1, tier: 'top', totalCostPln: 2400 }),
+    offer({ id: 2, tier: 'worth', totalCostPln: 2900 }),
+  ];
+  const kept = applyFilters(offers, DEFAULT_FILTERS).map((item) => item.tier);
+  assert.deepEqual(kept, ['top', 'worth']);
+});
+
 test('drops a listing below the area limit', () => {
   const offers = [offer({ areaM2: 25 })];
   assert.equal(applyFilters(offers, { ...DEFAULT_FILTERS, minAreaM2: 35 }).length, 0);
