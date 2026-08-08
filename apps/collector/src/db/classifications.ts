@@ -135,7 +135,10 @@ export function listClassifiedOffers(db: DatabaseSync): ClassifiedOffer[] {
        from classifications c
        join offers o on o.id = c.offer_id
        where o.status = 'active'
-       order by c.total_cost_pln`,
+       -- Tier first, then price. Sorting on price alone put a cheap listing whose real
+       -- cost is unknown above a pricier one that actually fits the budget.
+       order by case c.tier when 'top' then 0 when 'worth' then 1 else 2 end,
+                c.total_cost_pln`,
     )
     .all()
     .map(toClassifiedOffer);

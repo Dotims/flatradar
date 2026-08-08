@@ -4,6 +4,17 @@ import type { Offer, Tier } from './types.ts';
 
 const TIERS: Tier[] = ['top', 'worth', 'other'];
 
+/**
+ * `top`, `worth` and `other` are names for the code, not for a person reading a table.
+ * Each label carries the rule that produced it, so the panel never has to be explained
+ * twice: short text for the column, the whole rule on hover and next to the checkbox.
+ */
+const TIER_LABEL: Record<Tier, { short: string; rule: string }> = {
+  top: { short: 'W budżecie', rule: 'całość (najem + czynsz + media) do 2600 zł' },
+  worth: { short: 'Tani najem', rule: 'sam najem do 2200 zł, ale całość wychodzi drożej' },
+  other: { short: 'Odpada', rule: 'zła dzielnica albo za drogo' },
+};
+
 /** What the certainty of a total means, in the language the owner reads the panel in. */
 const CERTAINTY_LABEL: Record<string, string> = {
   exact: 'z ogłoszenia',
@@ -89,15 +100,16 @@ export function App() {
         </p>
 
         <p>
-          Próg:{' '}
+          Ocena:
+          <br />
           {TIERS.map((tier) => (
-            <label key={tier}>
+            <label key={tier} style={{ display: 'block' }}>
               <input
                 type="checkbox"
                 checked={filters.tiers.includes(tier)}
                 onChange={() => setFilters({ ...filters, tiers: toggle(filters.tiers, tier) })}
               />
-              {tier}{' '}
+              <strong>{TIER_LABEL[tier].short}</strong> - {TIER_LABEL[tier].rule}
             </label>
           ))}
         </p>
@@ -144,7 +156,7 @@ export function App() {
       <table border={1} cellPadding={4}>
         <thead>
           <tr>
-            <th>Próg</th>
+            <th>Ocena</th>
             <th>Dzielnica</th>
             <th>Najem</th>
             <th>Czynsz</th>
@@ -159,7 +171,7 @@ export function App() {
         <tbody>
           {visible.map((offer) => (
             <tr key={offer.id}>
-              <td>{offer.tier}</td>
+              <td title={TIER_LABEL[offer.tier].rule}>{TIER_LABEL[offer.tier].short}</td>
               <td>{offer.district ?? '-'}</td>
               <td>{offer.pricePln ?? '-'}</td>
               <td>{offer.rentPln ?? '-'}</td>
