@@ -50,8 +50,8 @@ function sourceCaption(status: SourceStatus | undefined, fallback: string): stri
 
 const HEALTH_TONE: Record<Health, string> = {
   fresh: '',
-  stale: 'text-amber-400',
-  failed: 'text-red-400',
+  stale: 'text-signal-300',
+  failed: 'text-danger',
   unknown: '',
 };
 
@@ -98,9 +98,9 @@ function Node({
         ? {}
         : { type: 'button' as const, onClick: onToggle, 'aria-pressed': selected })}
       className={`rule relative block w-full rounded-xl bg-graphite-900/90 px-4 py-3 text-left backdrop-blur-sm transition-colors duration-150 ${
-        accent ? 'border-signal-500/45' : ''
+        accent ? 'border-signal-400/45' : ''
       } ${onToggle === undefined ? '' : 'hover:border-line-strong'} ${
-        selected === true ? 'border-signal-500/60' : ''
+        selected === true ? 'border-signal-400/60' : ''
       }`}
     >
       {accent && (

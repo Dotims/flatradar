@@ -11,6 +11,10 @@ export interface Filters {
   /** Districts switched off. Anything new the portals report shows up by default. */
   hiddenDistricts: string[];
   privateOnly: boolean;
+  /** Only the ones kept for later. */
+  favouritesOnly: boolean;
+  /** Ruled out by hand. Off by default: that is the point of ruling one out. */
+  showRejected: boolean;
 }
 
 /**
@@ -40,6 +44,8 @@ export const DEFAULT_FILTERS: Filters = {
   maxRooms: null,
   hiddenDistricts: DEFAULT_HIDDEN_DISTRICTS,
   privateOnly: false,
+  favouritesOnly: false,
+  showRejected: false,
 };
 
 export const NO_DISTRICT = '(brak dzielnicy)';
@@ -55,6 +61,12 @@ function outsideRange(value: number | null, min: number | null, max: number | nu
 /** Free of React so it can be tested directly. */
 export function applyFilters(offers: Offer[], filters: Filters): Offer[] {
   return offers.filter((offer) => {
+    // Ruled out by hand and kept by hand both outrank the bounds: a favourite that no
+    // longer fits the budget is still the flat the owner wanted to keep looking at.
+    if (offer.mark === 'rejected') return filters.showRejected;
+    if (filters.favouritesOnly) return offer.mark === 'favourite';
+    if (offer.mark === 'favourite') return true;
+
     if (outsideRange(offer.totalCostPln, filters.minCostPln, filters.maxCostPln)) return false;
     if (outsideRange(offer.areaM2, filters.minAreaM2, filters.maxAreaM2)) return false;
     if (outsideRange(offer.rooms, filters.minRooms, filters.maxRooms)) return false;

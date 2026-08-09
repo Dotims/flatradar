@@ -1,6 +1,7 @@
 import { area, pln, pricePerM2, rooms, since } from '../format.ts';
 import { CERTAINTY, TIER } from '../tiers.ts';
-import type { Offer } from '../types.ts';
+import type { Mark, Offer } from '../types.ts';
+import { MarkControls } from './MarkControls.tsx';
 
 export function OfferCard({
   offer,
@@ -8,12 +9,14 @@ export function OfferCard({
   selected,
   onHover,
   onSelect,
+  onMark,
 }: {
   offer: Offer;
   active: boolean;
   selected: boolean;
   onHover: (id: number | null) => void;
   onSelect: () => void;
+  onMark: (next: Mark | null) => void;
 }) {
   const tier = TIER[offer.tier];
   const certainty = CERTAINTY[offer.costCertainty];
@@ -24,10 +27,12 @@ export function OfferCard({
       onMouseLeave={() => onHover(null)}
       onClick={onSelect}
       className={`rule @container relative rounded-xl bg-graphite-950 p-5 transition-colors duration-150 ${
+        offer.mark === 'rejected' ? 'opacity-55' : ''
+      } ${
         selected
-          ? 'border-signal-500/70 bg-graphite-900'
+          ? 'border-signal-400/70 bg-graphite-900'
           : active
-            ? 'border-signal-500/45 bg-graphite-900'
+            ? 'border-signal-400/45 bg-graphite-900'
             : 'hover:border-line-strong'
       }`}
     >
@@ -85,7 +90,10 @@ export function OfferCard({
             ? `${pln(offer.pricePln)} · czynsz niepodany`
             : `${pln(offer.pricePln)} + ${pln(offer.rentPln)} czynszu`}
         </span>
-        <span className="num text-ink-faint">{since(offer.createdAtSource)}</span>
+        <div className="flex items-center gap-3">
+          <span className="num text-ink-faint">{since(offer.createdAtSource)}</span>
+          <MarkControls mark={offer.mark} onChange={onMark} />
+        </div>
       </div>
     </article>
   );

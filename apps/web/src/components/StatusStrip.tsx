@@ -20,7 +20,7 @@ function Feed({ status, name }: { status: SourceStatus | undefined; name: string
     >
       <span className="tag">{name}</span>
       <span
-        className={`num text-xs ${failed ? 'text-red-400' : stale ? 'text-amber-400' : 'text-ink-dim'}`}
+        className={`num text-xs ${failed ? 'text-danger' : stale ? 'text-signal-300' : 'text-ink-dim'}`}
       >
         {failed ? 'błąd' : since(status?.lastCollectedAt ?? null)}
       </span>

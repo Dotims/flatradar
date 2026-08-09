@@ -16,7 +16,7 @@ import {
 } from './filters.ts';
 import { minutesSince, since } from './format.ts';
 import { useTheme } from './theme.ts';
-import type { Offer, SortKey, SourceStatus, Tier } from './types.ts';
+import type { Mark, Offer, SortKey, SourceStatus, Tier } from './types.ts';
 
 /*
   THESIS: a flat search is a pipeline with a verdict at the end, so the surface opens on
@@ -59,7 +59,26 @@ export function App() {
   const [mapOpen, setMapOpen] = useState(false);
   const [sort, setSort] = useState<SortKey>('newest');
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [markError, setMarkError] = useState<string | null>(null);
   const { theme, toggle: toggleTheme } = useTheme();
+
+  /**
+   * Applied locally first. The write is one row and the list is thousands, so refetching
+   * to learn what we already know would make marking a flat feel like a page load.
+   */
+  const mark = useCallback((id: number, next: Mark | null) => {
+    setOffers((current) =>
+      current.map((offer) => (offer.id === id ? { ...offer, mark: next } : offer)),
+    );
+
+    void fetch(`/api/offers/${id}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mark: next }),
+    }).then((response) => {
+      if (!response.ok) setMarkError('Nie udało się zapisać. Odśwież stronę.');
+    });
+  }, []);
 
   const load = useCallback(async (signal?: AbortSignal) => {
     const response = await fetch('/api/offers', signal ? { signal } : {});
@@ -193,6 +212,14 @@ export function App() {
     };
   }, [offers]);
 
+  const marked = useMemo(
+    () => ({
+      favourites: offers.filter((offer) => offer.mark === 'favourite').length,
+      rejected: offers.filter((offer) => offer.mark === 'rejected').length,
+    }),
+    [offers],
+  );
+
   if (loading) {
     return (
       <main className="grid min-h-dvh place-items-center">
@@ -228,9 +255,9 @@ export function App() {
           <p className="tag mt-1 normal-case">
             Kraków ·{' '}
             {disconnected ? (
-              <span className="text-red-400">brak połączenia z API</span>
+              <span className="text-danger">brak połączenia z API</span>
             ) : (
-              <span className={oldestFeed.stale ? 'text-amber-400' : ''}>
+              <span className={oldestFeed.stale ? 'text-signal-300' : ''}>
                 najstarszy zbiór {oldestFeed.label}
               </span>
             )}
@@ -238,10 +265,15 @@ export function App() {
         </div>
 
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          {markError !== null && (
+            <span role="status" className="tag text-danger normal-case">
+              {markError}
+            </span>
+          )}
           {syncNote !== null && (
             <span
               role="status"
-              className={`tag normal-case ${syncNote.kind === 'error' ? 'text-red-400' : ''}`}
+              className={`tag normal-case ${syncNote.kind === 'error' ? 'text-danger' : ''}`}
             >
               {syncNote.text}
             </span>
@@ -279,7 +311,13 @@ export function App() {
       )}
 
       <div className="mt-6">
-        <FilterBar filters={filters} districts={districts} onChange={setFilters} />
+        <FilterBar
+          filters={filters}
+          districts={districts}
+          favourites={marked.favourites}
+          rejected={marked.rejected}
+          onChange={setFilters}
+        />
       </div>
 
       {/* Two columns once there is room: listings to read, map to place them. The bounds
@@ -298,7 +336,7 @@ export function App() {
                     aria-pressed={sort === key}
                     className={`rounded-full border px-2.5 py-0.5 font-mono text-[0.6875rem] tracking-[0.06em] uppercase transition-colors ${
                       sort === key
-                        ? 'border-signal-500/60 bg-signal-500/10 text-signal-300'
+                        ? 'border-signal-400/60 bg-signal-500/10 text-signal-300'
                         : 'border-line text-ink-faint hover:border-line-strong hover:text-ink-dim'
                     }`}
                   >
@@ -334,6 +372,7 @@ export function App() {
                     selected={offer.id === selectedId}
                     onHover={setActiveId}
                     onSelect={() => setSelectedId(offer.id)}
+                    onMark={(next) => mark(offer.id, next)}
                   />
                 </li>
               ))}
@@ -350,6 +389,7 @@ export function App() {
                 selectedId={selectedId}
                 theme={theme}
                 onHover={setActiveId}
+                onMark={mark}
               />
             </div>
             <UnlocatedPanel
@@ -382,6 +422,7 @@ export function App() {
                 selectedId={selectedId}
                 theme={theme}
                 onHover={setActiveId}
+                onMark={mark}
               />
             </div>
             <UnlocatedPanel
@@ -405,7 +446,11 @@ export function App() {
             className="fixed inset-0 z-40 bg-scrim/60 backdrop-blur-[2px]"
           />
           <div className="fixed inset-y-0 right-0 z-50 w-full max-w-md p-3 sm:p-4">
-            <OfferDetail offer={selected} onClose={() => setSelectedId(null)} />
+            <OfferDetail
+              offer={selected}
+              onClose={() => setSelectedId(null)}
+              onMark={(next) => mark(selected.id, next)}
+            />
           </div>
         </>
       )}

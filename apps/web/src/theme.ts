@@ -14,6 +14,14 @@ export function storedTheme(): Theme | null {
   return value === 'dark' || value === 'light' ? value : null;
 }
 
+/** Radix Colors scopes its dark scales to .dark, so the class is what switches the palette. */
+export function applyTheme(theme: Theme): void {
+  const root = document.documentElement;
+  root.dataset['theme'] = theme;
+  root.classList.toggle('dark', theme === 'dark');
+  root.classList.toggle('light', theme === 'light');
+}
+
 /**
  * The stored choice outranks the machine's. Nothing is written until the switch is
  * actually thrown, so following the system stays the state a first visit is in rather
@@ -23,7 +31,7 @@ export function useTheme(): { theme: Theme; toggle: () => void } {
   const [theme, setTheme] = useState<Theme>(() => storedTheme() ?? preferredTheme());
 
   useEffect(() => {
-    document.documentElement.dataset['theme'] = theme;
+    applyTheme(theme);
   }, [theme]);
 
   useEffect(() => {

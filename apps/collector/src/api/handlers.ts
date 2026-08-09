@@ -1,5 +1,6 @@
 import type { Sql } from '../db/client.ts';
 import { listClassifiedOffers, type ClassifiedOffer } from '../db/classifications.ts';
+import { listMarks, setMark, toMark, type Mark } from '../db/marks.ts';
 import { upsertOffer } from '../db/offers.ts';
 import { readOfferDetail, type OfferDetail } from '../db/offer-detail.ts';
 import { listSourceStatus, type SourceStatus } from '../db/runs.ts';
@@ -29,11 +30,40 @@ export interface SyncResult {
   tiers: Record<string, number>;
 }
 
+export interface MarkedOffer extends ClassifiedOffer {
+  mark: Mark | null;
+}
+
 export async function readOffers(
   sql: Sql,
-): Promise<{ offers: ClassifiedOffer[]; sources: SourceStatus[] }> {
-  const [offers, sources] = await Promise.all([listClassifiedOffers(sql), listSourceStatus(sql)]);
-  return { offers, sources };
+): Promise<{ offers: MarkedOffer[]; sources: SourceStatus[] }> {
+  const [offers, sources, marks] = await Promise.all([
+    listClassifiedOffers(sql),
+    listSourceStatus(sql),
+    listMarks(sql),
+  ]);
+
+  return {
+    offers: offers.map((offer) => ({ ...offer, mark: marks.get(offer.id) ?? null })),
+    sources,
+  };
+}
+
+/** The owner's own verdict on one listing. `null` clears it. */
+export async function writeMark(sql: Sql, id: number, mark: Mark | null): Promise<void> {
+  await setMark(sql, id, mark);
+}
+
+/** Anything but the three accepted words is a bad request, not a silent no-op. */
+export function readMark(body: unknown): Mark | null {
+  if (typeof body !== 'object' || body === null || !('mark' in body)) {
+    throw new Error('Expected a body with a mark field.');
+  }
+
+  const { mark } = body as { mark: unknown };
+  if (mark === null) return null;
+  if (typeof mark !== 'string') throw new Error('The mark must be a string or null.');
+  return toMark(mark);
 }
 
 /** One listing in full: description and photos, too heavy for the list payload. */

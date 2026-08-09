@@ -1,4 +1,21 @@
 @import 'tailwindcss';
+
+/*
+  Radix Colors carries the palette. Each scale ships a light and a dark variant whose
+  steps mean the same thing in both, so the light theme stops being hand-picked hex and
+  a contrast target it happened to hit. Steps used here, from their contract:
+    1-2 ground   3-5 raised   6-8 borders   9-10 solid fills   11 text   12 loud text
+  Step 11 is guaranteed 4.5:1 on its own step 1-2; step 9 is the solid fill and expects
+  dark text on it. Sand pairs with amber, which is the accent the brief asked for.
+  The dark files are scoped to .dark, so <html> carries the class as well as data-theme.
+*/
+@import '@radix-ui/colors/sand.css';
+@import '@radix-ui/colors/sand-dark.css';
+@import '@radix-ui/colors/amber.css';
+@import '@radix-ui/colors/amber-dark.css';
+@import '@radix-ui/colors/red.css';
+@import '@radix-ui/colors/red-dark.css';
+
 @import 'leaflet/dist/leaflet.css';
 
 @theme {
@@ -6,58 +23,54 @@
   --font-mono:
     ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
 
-  /* Ground: true black at the edges, graphite for anything raised off it. */
-  --color-void: #000000;
-  --color-graphite-950: #0a0a0b;
-  --color-graphite-900: #121214;
-  --color-graphite-800: #17171a;
-  --color-line: #232327;
-  --color-line-strong: #33333a;
+  /* Ground, then anything raised off it. */
+  --color-void: var(--sand-1);
+  --color-graphite-950: var(--sand-2);
+  --color-graphite-900: var(--sand-3);
+  --color-graphite-800: var(--sand-4);
+  --color-line: var(--sand-6);
+  --color-line-strong: var(--sand-8);
 
-  --color-ink: #f5f5f6;
-  --color-ink-dim: #a1a1aa;
-  --color-ink-faint: #8b8b95;
+  --color-ink: var(--sand-12);
+  --color-ink-dim: var(--sand-11);
+  /* Also step 11: this is labelling, and labelling has to be readable. Anything quieter
+     than that is decoration and uses ink-mute. */
+  --color-ink-faint: var(--sand-11);
+  --color-ink-mute: var(--sand-10);
 
-  /* The single accent, warm and lit. */
-  --color-signal-300: #fde68a;
-  --color-signal-400: #fbbf24;
-  --color-signal-500: #f59e0b;
-  --color-signal-600: #ea8c0b;
+  /* The single accent. 300 and 400 are the reading and drawing weights, 500 and 600 the
+     solid fills that carry dark text. */
+  --color-signal-300: var(--amber-11);
+  --color-signal-400: var(--amber-11);
+  --color-signal-500: var(--amber-9);
+  --color-signal-600: var(--amber-10);
+
+  --color-danger: var(--red-11);
 
   /* Fixed in both themes. Text on a filled accent is always dark, and the scrim over a
      photo is always dark, because a photograph brings its own ground. */
-  --color-on-signal: #0a0a0b;
+  --color-on-signal: #21201c;
   --color-scrim: #000000;
 
   --animate-drift: drift 9s ease-in-out infinite;
   --animate-trace: trace 3.2s ease-in-out infinite;
 }
 
+/* The brief asked for true black at the edges, which is one step past sand-1. Written
+   as html.dark so it outranks the :root block the theme is emitted into. */
+html.dark {
+  --color-void: #000000;
+}
+
 /*
-  Light is a second world, not an inversion. The names keep their roles - void is the
-  ground, ink is the text, signal is the one accent - while the values swap. The accent
-  has to darken: #fbbf24 on white measures 1.7:1 and cannot carry text or a thin border.
-  A theme is resolved onto <html> before first paint by the script in index.html, so the
-  attribute is the only switch and there is no media query to keep in sync.
+  Radix guarantees step 11 against steps 1-2 of its own scale. Amber text on a sand
+  panel is a cross-scale pairing and measured 4.38:1, just under the bar, so the light
+  theme takes its accent text a shade toward the ink. Measured after the change, with
+  the tinted pill backgrounds composited in: 5.1:1 on a panel, 4.86:1 inside a lit pill.
 */
-:root[data-theme='light'] {
-  --color-void: #ffffff;
-  --color-graphite-950: #fafafa;
-  --color-graphite-900: #f4f4f5;
-  --color-graphite-800: #e9e9ec;
-  --color-line: #e0e0e4;
-  --color-line-strong: #c4c4cc;
-
-  --color-ink: #18181b;
-  --color-ink-dim: #52525b;
-  --color-ink-faint: #6b6b75;
-
-  /* 300 is the reading weight and 400 the drawing weight, so both go dark enough to
-     carry themselves: #b45309 is 5.9:1 on white, #c2660a is 4.6:1. */
-  --color-signal-300: #b45309;
-  --color-signal-400: #c2660a;
-  --color-signal-500: #e08307;
-  --color-signal-600: #ea8c0b;
+html.light {
+  --color-signal-300: color-mix(in srgb, var(--amber-11) 88%, var(--sand-12));
+  --color-signal-400: color-mix(in srgb, var(--amber-11) 88%, var(--sand-12));
 }
 
 @keyframes drift {
@@ -82,7 +95,7 @@
   }
 
   /* Native scrollbars and form controls read this, not our tokens. */
-  html[data-theme='light'] {
+  html.light {
     color-scheme: light;
   }
 
@@ -135,8 +148,8 @@
 }
 
 /* A glow reads as emitted light on a dark ground and as a smudge on a bright one. */
-:root[data-theme='light'] .lit,
-:root[data-theme='light'] .lit-num {
+html.light .lit,
+html.light .lit-num {
   text-shadow: none;
 }
 

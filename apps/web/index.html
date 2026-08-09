@@ -9,14 +9,17 @@
       // Before first paint, so the page never flashes the other theme. React reads the
       // same key afterwards and takes it from here.
       (function () {
+        var theme = 'dark';
         try {
           var stored = localStorage.getItem('flatradar:theme');
           var system = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
-          document.documentElement.dataset.theme =
-            stored === 'light' || stored === 'dark' ? stored : system;
+          theme = stored === 'light' || stored === 'dark' ? stored : system;
         } catch (error) {
-          document.documentElement.dataset.theme = 'dark';
+          theme = 'dark';
         }
+        // The class is what Radix Colors keys its dark scales on.
+        document.documentElement.dataset.theme = theme;
+        document.documentElement.classList.add(theme);
       })();
     </script>
   </head>

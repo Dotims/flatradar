@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { area, pln, rooms, since } from '../format.ts';
 import { CERTAINTY, TIER } from '../tiers.ts';
-import type { Offer, OfferDetail as Detail } from '../types.ts';
+import type { Mark, Offer, OfferDetail as Detail } from '../types.ts';
+import { MarkControls } from './MarkControls.tsx';
 
 /**
  * Descriptions are portal HTML written by strangers. It is flattened to text and
@@ -21,7 +22,15 @@ function toText(html: string): string {
     .trim();
 }
 
-export function OfferDetail({ offer, onClose }: { offer: Offer; onClose: () => void }) {
+export function OfferDetail({
+  offer,
+  onClose,
+  onMark,
+}: {
+  offer: Offer;
+  onClose: () => void;
+  onMark: (next: Mark | null) => void;
+}) {
   const [detail, setDetail] = useState<Detail | null>(null);
   const [failed, setFailed] = useState(false);
   const [photo, setPhoto] = useState(0);
@@ -149,7 +158,7 @@ export function OfferDetail({ offer, onClose }: { offer: Offer; onClose: () => v
         <div className="border-t border-line p-4">
           <span className="tag">opis</span>
           {failed ? (
-            <p className="mt-2 text-xs text-red-400">Nie udało się pobrać szczegółów.</p>
+            <p className="mt-2 text-xs text-danger">Nie udało się pobrać szczegółów.</p>
           ) : detail === null ? (
             <p className="tag mt-2 animate-drift normal-case">wczytuję…</p>
           ) : detail.description === null ? (
@@ -162,12 +171,13 @@ export function OfferDetail({ offer, onClose }: { offer: Offer; onClose: () => v
         </div>
       </div>
 
-      <footer className="border-t border-line p-4">
+      <footer className="flex items-center gap-3 border-t border-line p-4">
+        <MarkControls mark={offer.mark} onChange={onMark} />
         <a
           href={offer.url}
           target="_blank"
           rel="noreferrer noopener"
-          className="block rounded-full bg-gradient-to-r from-signal-400 to-signal-600 px-4 py-2 text-center font-mono text-[0.6875rem] tracking-[0.08em] text-on-signal uppercase transition-opacity hover:opacity-90"
+          className="block flex-1 rounded-full bg-gradient-to-r from-signal-400 to-signal-600 px-4 py-2 text-center font-mono text-[0.6875rem] tracking-[0.08em] text-on-signal uppercase transition-opacity hover:opacity-90"
         >
           otwórz na {offer.source}
         </a>

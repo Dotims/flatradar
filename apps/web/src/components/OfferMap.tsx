@@ -3,7 +3,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet';
 import { area, pln, rooms, since } from '../format.ts';
 import type { Theme } from '../theme.ts';
-import type { Offer, OfferDetail } from '../types.ts';
+import type { Mark, Offer, OfferDetail } from '../types.ts';
+import { MarkControls } from './MarkControls.tsx';
 
 const KRAKOW: [number, number] = [50.0614, 19.9372];
 
@@ -35,7 +36,7 @@ function priceMarker(offer: Offer, active: boolean, selected: boolean) {
     : active
       ? 'border-color:var(--color-signal-400)'
       : top
-        ? 'border-color:color-mix(in srgb, var(--color-signal-500) 55%, transparent)'
+        ? 'border-color:color-mix(in srgb, var(--color-signal-400) 55%, transparent)'
         : 'border-color:var(--color-line-strong)';
 
   return divIcon({
@@ -199,7 +200,15 @@ function Recentre({ points, fingerprint }: { points: [number, number][]; fingerp
  * The preview a pin opens. Everything except the photograph is already in hand, so the
  * request is made only once this is on screen, and only for the one listing.
  */
-function PopupBody({ offer, open }: { offer: Offer; open: boolean }) {
+function PopupBody({
+  offer,
+  open,
+  onMark,
+}: {
+  offer: Offer;
+  open: boolean;
+  onMark: (next: Mark | null) => void;
+}) {
   const [photo, setPhoto] = useState<string | null>(null);
 
   useEffect(() => {
@@ -240,13 +249,16 @@ function PopupBody({ offer, open }: { offer: Offer; open: boolean }) {
 
       <div className="tag mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
         <span>{offer.district ?? 'bez dzielnicy'}</span>
-        <span className="text-ink-faint/60">·</span>
+        <span className="text-ink-mute">·</span>
         <span>{rooms(offer.rooms)}</span>
-        <span className="text-ink-faint/60">·</span>
+        <span className="text-ink-mute">·</span>
         <span>{since(offer.createdAtSource)}</span>
       </div>
 
-      <span className="tag mt-2.5 block text-signal-400">otwórz na {offer.source} ↗</span>
+      <div className="mt-2.5 flex items-center justify-between gap-2">
+        <span className="tag text-signal-400">otwórz na {offer.source} ↗</span>
+        <MarkControls mark={offer.mark} onChange={onMark} />
+      </div>
     </a>
   );
 }
@@ -256,11 +268,13 @@ function Pins({
   activeId,
   selectedId,
   onHover,
+  onMark,
 }: {
   located: Offer[];
   activeId: number | null;
   selectedId: number | null;
   onHover: (id: number | null) => void;
+  onMark: (id: number, next: Mark | null) => void;
 }) {
   const [openId, setOpenId] = useState<number | null>(null);
   const keep = useMemo(() => [activeId, selectedId, openId], [activeId, selectedId, openId]);
@@ -293,7 +307,11 @@ function Pins({
             }}
           >
             <Popup autoPan closeButton minWidth={256} maxWidth={256}>
-              <PopupBody offer={offer} open={openId === offer.id} />
+              <PopupBody
+                offer={offer}
+                open={openId === offer.id}
+                onMark={(next) => onMark(offer.id, next)}
+              />
             </Popup>
           </Marker>
         );
@@ -308,12 +326,14 @@ export function OfferMap({
   selectedId,
   theme,
   onHover,
+  onMark,
 }: {
   offers: Offer[];
   activeId: number | null;
   selectedId: number | null;
   theme: Theme;
   onHover: (id: number | null) => void;
+  onMark: (id: number, next: Mark | null) => void;
 }) {
   const located = useMemo(
     () => offers.filter((offer) => offer.lat !== null && offer.lng !== null),
@@ -344,7 +364,13 @@ export function OfferMap({
         />
         <FitToContainer />
         <Recentre points={points} fingerprint={fingerprint} />
-        <Pins located={located} activeId={activeId} selectedId={selectedId} onHover={onHover} />
+        <Pins
+          located={located}
+          activeId={activeId}
+          selectedId={selectedId}
+          onHover={onHover}
+          onMark={onMark}
+        />
       </MapContainer>
     </div>
   );

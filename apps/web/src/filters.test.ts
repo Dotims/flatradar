@@ -31,6 +31,7 @@ function offer(overrides: Partial<Offer> = {}): Offer {
     coordsPrecision: null,
     createdAtSource: null,
     firstSeenAt: '2026-08-08T00:00:00.000Z',
+    mark: null,
     ...overrides,
   };
 }
@@ -120,6 +121,33 @@ test('the private filter drops agency listings but keeps unknown ones', () => {
     kept.map((item) => item.id),
     [2, 3],
   );
+});
+
+test('a rejected listing is gone until it is asked for', () => {
+  const offers = [offer({ mark: 'rejected' })];
+  assert.equal(applyFilters(offers, OPEN).length, 0);
+  assert.equal(applyFilters(offers, { ...OPEN, showRejected: true }).length, 1);
+});
+
+test('a favourite survives bounds it no longer fits', () => {
+  // Keeping a flat is a decision about that flat, so a later change of budget must not
+  // quietly take it away.
+  const kept = offer({ mark: 'favourite', totalCostPln: 4000, district: 'Krowodrza' });
+  assert.equal(applyFilters([kept], DEFAULT_FILTERS).length, 1);
+});
+
+test('a rejected listing stays gone even when favourites are asked for', () => {
+  const offers = [offer({ mark: 'rejected' }), offer({ id: 2, mark: 'favourite' })];
+  const kept = applyFilters(offers, { ...OPEN, favouritesOnly: true });
+  assert.deepEqual(
+    kept.map((item) => item.id),
+    [2],
+  );
+});
+
+test('favourites only hides everything unmarked', () => {
+  const offers = [offer({ id: 1 }), offer({ id: 2, mark: 'favourite' })];
+  assert.equal(applyFilters(offers, { ...OPEN, favouritesOnly: true }).length, 1);
 });
 
 test('district options are sorted and deduplicated', () => {

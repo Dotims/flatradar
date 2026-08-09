@@ -1,6 +1,9 @@
 export type Tier = 'top' | 'worth' | 'other';
 export type CostCertainty = 'exact' | 'all_in' | 'estimated' | 'uncertain';
 
+/** What the owner decided, as opposed to what the rules decided. */
+export type Mark = 'favourite' | 'rejected';
+
 /**
  * Mirrors `ClassifiedOffer` in the collector. Copied rather than imported: the packages
  * compile with different module settings. Drift throws on the collector side first.
@@ -26,6 +29,7 @@ export interface Offer {
   coordsPrecision: string | null;
   createdAtSource: string | null;
   firstSeenAt: string;
+  mark: Mark | null;
 }
 
 /** When each portal was last collected, and whether that round worked. */
