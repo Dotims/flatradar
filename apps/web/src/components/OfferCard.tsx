@@ -5,11 +5,15 @@ import type { Offer } from '../types.ts';
 export function OfferCard({
   offer,
   active,
+  selected,
   onHover,
+  onSelect,
 }: {
   offer: Offer;
   active: boolean;
+  selected: boolean;
   onHover: (id: number | null) => void;
+  onSelect: () => void;
 }) {
   const tier = TIER[offer.tier];
   const certainty = CERTAINTY[offer.costCertainty];
@@ -18,8 +22,13 @@ export function OfferCard({
     <article
       onMouseEnter={() => onHover(offer.id)}
       onMouseLeave={() => onHover(null)}
+      onClick={onSelect}
       className={`rule @container relative rounded-xl bg-graphite-950 p-5 transition-colors duration-150 ${
-        active ? 'border-signal-500/60 bg-graphite-900' : 'hover:border-line-strong'
+        selected
+          ? 'border-signal-500/70 bg-graphite-900'
+          : active
+            ? 'border-signal-500/45 bg-graphite-900'
+            : 'hover:border-line-strong'
       }`}
     >
       <div className="flex items-start justify-between gap-4">
@@ -36,6 +45,7 @@ export function OfferCard({
             href={offer.url}
             target="_blank"
             rel="noreferrer noopener"
+            onClick={(event) => event.stopPropagation()}
             title={offer.title}
             className="mt-2 line-clamp-2 block text-[0.95rem] leading-snug font-medium text-ink wrap-anywhere underline-offset-4 transition-colors hover:text-signal-300 hover:underline"
           >

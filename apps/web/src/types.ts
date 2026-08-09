@@ -35,3 +35,15 @@ export interface SourceStatus {
   ok: boolean | null;
   itemsSeen: number;
 }
+
+/** One listing in full, fetched only when a card or marker is opened. */
+export interface OfferDetail {
+  id: number;
+  source: string;
+  url: string;
+  title: string;
+  description: string | null;
+  photos: string[];
+}
+
+export type SortKey = 'newest' | 'cheapest' | 'largest';

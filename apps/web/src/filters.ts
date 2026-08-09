@@ -1,4 +1,4 @@
-import type { Offer, Tier } from './types.ts';
+import type { Offer, SortKey, Tier } from './types.ts';
 
 export interface Filters {
   /** Upper bound on the full monthly cost, in PLN. */
@@ -51,4 +51,29 @@ export function applyFilters(offers: Offer[], filters: Filters): Offer[] {
 export function availableDistricts(offers: Offer[]): string[] {
   const seen = new Set(offers.map((offer) => offer.district ?? NO_DISTRICT));
   return [...seen].sort((a, b) => a.localeCompare(b, 'pl'));
+}
+
+export const SORTS: { key: SortKey; label: string }[] = [
+  { key: 'newest', label: 'najnowsze' },
+  { key: 'cheapest', label: 'najtańsze' },
+  { key: 'largest', label: 'największe' },
+];
+
+/** Nulls sort last under every key: an unknown value is not a small one. */
+function compare(a: number | null, b: number | null, direction: 1 | -1): number {
+  if (a === null && b === null) return 0;
+  if (a === null) return 1;
+  if (b === null) return -1;
+  return (a - b) * direction;
+}
+
+export function sortOffers(offers: Offer[], key: SortKey): Offer[] {
+  const time = (offer: Offer) =>
+    offer.createdAtSource === null ? null : new Date(offer.createdAtSource).getTime();
+
+  return [...offers].sort((a, b) => {
+    if (key === 'cheapest') return compare(a.totalCostPln, b.totalCostPln, 1);
+    if (key === 'largest') return compare(a.areaM2, b.areaM2, -1);
+    return compare(time(a), time(b), -1);
+  });
 }

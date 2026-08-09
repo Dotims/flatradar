@@ -1,5 +1,11 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
-import { assertIngestAllowed, ingestOlx, readOffers, syncOtodom } from './api/handlers.ts';
+import {
+  assertIngestAllowed,
+  ingestOlx,
+  readDetail,
+  readOffers,
+  syncOtodom,
+} from './api/handlers.ts';
 import { openDatabase } from './db/client.ts';
 import { migrate } from './db/migrate.ts';
 
@@ -35,6 +41,13 @@ export async function startServer(port: number = PORT): Promise<ReturnType<typeo
       try {
         if (request.method === 'GET' && url.pathname === '/api/offers') {
           sendJson(response, 200, await readOffers(sql));
+          return;
+        }
+        const detail = /^\/api\/offers\/(\d+)$/.exec(url.pathname);
+        if (request.method === 'GET' && detail?.[1] !== undefined) {
+          const found = await readDetail(sql, Number(detail[1]));
+          if (found === null) sendJson(response, 404, { error: 'Nie ma takiej oferty.' });
+          else sendJson(response, 200, found);
           return;
         }
         if (request.method === 'GET' && url.pathname === '/api/health') {

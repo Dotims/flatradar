@@ -101,7 +101,7 @@ export function FilterRail({
           suffix="m²"
           min={0}
           max={80}
-          step={5}
+          step={1}
           onChange={(minAreaM2) => onChange({ ...filters, minAreaM2 })}
         />
       </div>

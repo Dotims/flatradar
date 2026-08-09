@@ -1,6 +1,7 @@
 import type { Sql } from '../db/client.ts';
 import { listClassifiedOffers, type ClassifiedOffer } from '../db/classifications.ts';
 import { upsertOffer } from '../db/offers.ts';
+import { readOfferDetail, type OfferDetail } from '../db/offer-detail.ts';
 import { listSourceStatus, type SourceStatus } from '../db/runs.ts';
 import { classifyOffers } from '../commands/classify.ts';
 import { collectOtodom } from '../commands/collect-otodom.ts';
@@ -33,6 +34,11 @@ export async function readOffers(
 ): Promise<{ offers: ClassifiedOffer[]; sources: SourceStatus[] }> {
   const [offers, sources] = await Promise.all([listClassifiedOffers(sql), listSourceStatus(sql)]);
   return { offers, sources };
+}
+
+/** One listing in full: description and photos, too heavy for the list payload. */
+export async function readDetail(sql: Sql, id: number): Promise<OfferDetail | null> {
+  return readOfferDetail(sql, id);
 }
 
 /** Otodom only: OLX refuses datacenter addresses, and this runs on one. */

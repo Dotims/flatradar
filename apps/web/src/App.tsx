@@ -1,12 +1,21 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FilterRail } from './components/FilterRail.tsx';
 import { OfferCard } from './components/OfferCard.tsx';
+import { OfferDetail } from './components/OfferDetail.tsx';
 import { OfferMap } from './components/OfferMap.tsx';
+import { UnlocatedPanel } from './components/UnlocatedPanel.tsx';
 import { PipelineGraph } from './components/PipelineGraph.tsx';
 import { StatusStrip } from './components/StatusStrip.tsx';
-import { applyFilters, availableDistricts, DEFAULT_FILTERS, type Filters } from './filters.ts';
+import {
+  applyFilters,
+  availableDistricts,
+  DEFAULT_FILTERS,
+  SORTS,
+  sortOffers,
+  type Filters,
+} from './filters.ts';
 import { minutesSince, since } from './format.ts';
-import type { Offer, SourceStatus, Tier } from './types.ts';
+import type { Offer, SortKey, SourceStatus, Tier } from './types.ts';
 
 /*
   THESIS: a flat search is a pipeline with a verdict at the end, so the surface opens on
@@ -42,6 +51,8 @@ export function App() {
   const [activeId, setActiveId] = useState<number | null>(null);
   const [graphOpen, setGraphOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
+  const [sort, setSort] = useState<SortKey>('newest');
+  const [selectedId, setSelectedId] = useState<number | null>(null);
 
   const toggleTier = useCallback(
     (tier: Tier) =>
@@ -141,7 +152,17 @@ export function App() {
   }, [sources]);
 
   const districts = useMemo(() => availableDistricts(offers), [offers]);
-  const visible = useMemo(() => applyFilters(offers, filters), [offers, filters]);
+  const visible = useMemo(
+    () => sortOffers(applyFilters(offers, filters), sort),
+    [offers, filters, sort],
+  );
+
+  const selected = useMemo(
+    () => visible.find((offer) => offer.id === selectedId) ?? null,
+    [visible, selectedId],
+  );
+
+  const unlocated = useMemo(() => visible.filter((offer) => offer.lat === null), [visible]);
 
   /** Names the filter actually responsible, rather than the two easiest to mention. */
   const activeFilterHint = useMemo(() => {
@@ -154,11 +175,6 @@ export function App() {
 
     return narrowed.length === 0 ? null : `Zawężają: ${narrowed.join(', ')}.`;
   }, [filters]);
-
-  const withoutLocation = useMemo(
-    () => visible.filter((offer) => offer.lat === null).length,
-    [visible],
-  );
 
   const counts = useMemo(() => {
     const tiers: Record<Tier, number> = { top: 0, worth: 0, other: 0 };
@@ -259,12 +275,31 @@ export function App() {
 
       <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,1fr)_15rem] lg:gap-10 2xl:grid-cols-[minmax(0,1fr)_26rem_15rem]">
         <div className="min-w-0 lg:order-1">
-          <div className="flex items-baseline justify-between border-b border-line pb-3">
-            <h2 className="text-sm font-medium text-ink-dim">Oferty</h2>
+          <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2 border-b border-line pb-3">
+            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-2">
+              <h2 className="text-sm font-medium text-ink-dim">Oferty</h2>
+              <div className="flex flex-wrap gap-1.5">
+                {SORTS.map(({ key, label }) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setSort(key)}
+                    aria-pressed={sort === key}
+                    className={`rounded-full border px-2.5 py-0.5 font-mono text-[0.6875rem] tracking-[0.06em] uppercase transition-colors ${
+                      sort === key
+                        ? 'border-signal-500/60 bg-signal-500/10 text-signal-300'
+                        : 'border-line text-ink-faint hover:border-line-strong hover:text-ink-dim'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
             <span aria-live="polite" className="num text-xs text-ink-faint">
               {visible.length} / {offers.length}
-              {withoutLocation > 0 && (
-                <span className="ml-2 text-ink-faint">· {withoutLocation} bez lokalizacji</span>
+              {unlocated.length > 0 && (
+                <span className="ml-2 text-ink-faint">· {unlocated.length} bez lokalizacji</span>
               )}
             </span>
           </div>
@@ -282,7 +317,13 @@ export function App() {
             <ul className="mt-6 grid list-none gap-3 xl:grid-cols-2">
               {visible.map((offer) => (
                 <li key={offer.id}>
-                  <OfferCard offer={offer} active={offer.id === activeId} onHover={setActiveId} />
+                  <OfferCard
+                    offer={offer}
+                    active={offer.id === activeId}
+                    selected={offer.id === selectedId}
+                    onHover={setActiveId}
+                    onSelect={() => setSelectedId(offer.id)}
+                  />
                 </li>
               ))}
             </ul>
@@ -292,8 +333,28 @@ export function App() {
         {/* Wide enough for a third column: the map sits beside the list, tall rather
             than letterboxed, and both stay visible while hovering links them. */}
         <div className="hidden 2xl:order-2 2xl:block">
-          <div className="sticky top-6 h-[calc(100dvh-3rem)]">
-            <OfferMap offers={visible} activeId={activeId} onHover={setActiveId} />
+          <div className="sticky top-6 flex h-[calc(100dvh-3rem)] flex-col gap-3">
+            {selected === null ? (
+              <>
+                <div className="min-h-0 flex-1">
+                  <OfferMap
+                    offers={visible}
+                    activeId={activeId}
+                    selectedId={selectedId}
+                    onHover={setActiveId}
+                    onSelect={setSelectedId}
+                  />
+                </div>
+                <UnlocatedPanel
+                  offers={unlocated}
+                  activeId={activeId}
+                  onHover={setActiveId}
+                  onSelect={setSelectedId}
+                />
+              </>
+            ) : (
+              <OfferDetail offer={selected} onClose={() => setSelectedId(null)} />
+            )}
           </div>
         </div>
 
@@ -309,11 +370,25 @@ export function App() {
               aria-expanded={mapOpen}
               className="tag normal-case transition-colors hover:text-ink-dim"
             >
-              {mapOpen ? 'ukryj mapę' : `pokaż mapę · ${visible.length - withoutLocation}`}
+              {mapOpen ? 'ukryj mapę' : `pokaż mapę · ${visible.length - unlocated.length}`}
             </button>
             {mapOpen && (
-              <div className="mt-3 h-80">
-                <OfferMap offers={visible} activeId={activeId} onHover={setActiveId} />
+              <div className="mt-3 grid gap-3">
+                <div className="h-80">
+                  <OfferMap
+                    offers={visible}
+                    activeId={activeId}
+                    selectedId={selectedId}
+                    onHover={setActiveId}
+                    onSelect={setSelectedId}
+                  />
+                </div>
+                <UnlocatedPanel
+                  offers={unlocated}
+                  activeId={activeId}
+                  onHover={setActiveId}
+                  onSelect={setSelectedId}
+                />
               </div>
             )}
           </div>
