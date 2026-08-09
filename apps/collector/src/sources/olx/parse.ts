@@ -47,6 +47,12 @@ function readLabel(params: OlxParam[], key: string): string | null {
   return param?.value.label ?? null;
 }
 
+/** OLX sends an empty string for a company name a private seller does not have. */
+function blankToNull(value: string | null | undefined): string | null {
+  const trimmed = value?.trim();
+  return trimmed === undefined || trimmed === '' ? null : trimmed;
+}
+
 function toIsoOrNull(value: string | null | undefined): string | null {
   if (!value) return null;
   const date = new Date(value);
@@ -87,6 +93,8 @@ export function parseOlxOffer(offer: OlxOffer): NormalizedOffer {
     coordsPrecision: offer.map.radius === 0 ? 'exact' : 'approximate',
 
     isPrivateOwner: !offer.business,
+    // The trading name where there is one; otherwise whatever the seller calls themselves.
+    advertiser: blankToNull(offer.user?.company_name) ?? blankToNull(offer.user?.name),
     status: offer.status === 'active' ? 'active' : 'expired',
 
     createdAtSource: toIsoOrNull(offer.created_time),

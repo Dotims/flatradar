@@ -44,6 +44,8 @@ export interface OtodomListItem {
   roomsNumber: string | null;
   floorNumber: string | null;
   isPrivateOwner: boolean | null;
+  /** Only agencies are named on the results page; private sellers are not. */
+  agency?: { name?: string | null } | null;
   /** First appearance, as opposed to last edit. */
   createdAtFirst: string | null;
   dateCreated: string | null;
@@ -77,6 +79,9 @@ export interface OtodomAdResponse {
       location: OtodomLocation;
       /** Flat map of advert parameters. */
       target?: Record<string, unknown> | null;
+      /** The advert page names the agency even where the results page did not. */
+      agency?: { name?: string | null } | null;
+      owner?: { name?: string | null } | null;
     };
   };
 }

@@ -59,6 +59,8 @@ export interface ClassifiedOffer {
   coordsPrecision: string | null;
   createdAtSource: string | null;
   firstSeenAt: string;
+  /** The same flat advertised elsewhere, hidden from the list but still reachable. */
+  alsoOn: { source: string; url: string }[];
 }
 
 function toTier(value: string): Tier {
@@ -95,7 +97,29 @@ function toClassifiedOffer(row: DbRow): ClassifiedOffer {
     coordsPrecision: readNullableString(row, 'coords_precision'),
     createdAtSource: readNullableIso(row, 'created_at_source'),
     firstSeenAt: readIso(row, 'first_seen_at'),
+    alsoOn: readAlsoOn(row),
   };
+}
+
+/** Aggregated by the query below, and arriving as jsonb text from this driver. */
+function readAlsoOn(row: DbRow): { source: string; url: string }[] {
+  const raw = row['also_on'];
+  if (raw === null || raw === undefined) return [];
+
+  const parsed: unknown = typeof raw === 'string' ? JSON.parse(raw) : raw;
+  if (!Array.isArray(parsed)) throw new Error('Column "also_on" does not hold a list.');
+
+  return parsed.map((entry) => {
+    if (
+      typeof entry !== 'object' ||
+      entry === null ||
+      typeof (entry as { source?: unknown }).source !== 'string' ||
+      typeof (entry as { url?: unknown }).url !== 'string'
+    ) {
+      throw new Error('Column "also_on" holds something that is not a listing reference.');
+    }
+    return entry as { source: string; url: string };
+  });
 }
 
 /** Everything the dashboard shows. A few hundred rows, so it is sent once and filtered there. */
@@ -104,10 +128,18 @@ export async function listClassifiedOffers(sql: Queryable): Promise<ClassifiedOf
     select o.id, o.source, o.url, o.title, o.district, o.area_m2, o.rooms, o.floor,
            o.price_pln, o.rent_pln, o.is_private_owner, o.lat, o.lng, o.coords_precision,
            o.created_at_source, o.first_seen_at,
-           c.tier, c.total_cost_pln, c.cost_certainty, c.reasons
+           c.tier, c.total_cost_pln, c.cost_certainty, c.reasons,
+           coalesce(dupes.also_on, '[]'::jsonb) as also_on
     from classifications c
     join offers o on o.id = c.offer_id
-    where o.status = 'active'
+    left join lateral (
+      select jsonb_agg(jsonb_build_object('source', d.source, 'url', d.url)
+                       order by d.source) as also_on
+      from offers d
+      where d.duplicate_of = o.id and d.status = 'active'
+    ) dupes on true
+    -- A listing marked as a repeat of another is reachable through that one's alsoOn.
+    where o.status = 'active' and o.duplicate_of is null
     -- Tier first: on price alone, a cheap unknown outranks a pricier listing that fits.
     order by case c.tier when 'top' then 0 when 'worth' then 1 else 2 end, c.total_cost_pln
   `;

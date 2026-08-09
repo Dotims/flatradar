@@ -48,6 +48,8 @@ export interface OlxOffer {
   status: string;
   /** true = business account (agency, developer), false = private individual. */
   business: boolean;
+  /** A company trades under `company_name`; a private seller has only a display name. */
+  user?: { name?: string | null; company_name?: string | null } | null;
   params: OlxParam[];
   location: OlxLocation;
   map: OlxMap;

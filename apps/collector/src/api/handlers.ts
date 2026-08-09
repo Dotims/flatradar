@@ -6,6 +6,7 @@ import { readOfferDetail, type OfferDetail } from '../db/offer-detail.ts';
 import { listSourceStatus, type SourceStatus } from '../db/runs.ts';
 import { classifyOffers } from '../commands/classify.ts';
 import { collectOtodom } from '../commands/collect-otodom.ts';
+import { dedupeOffers } from '../commands/dedupe.ts';
 import { parseOlxOffer } from '../sources/olx/parse.ts';
 import type { OlxOffer } from '../sources/olx/types.ts';
 
@@ -77,6 +78,7 @@ export async function syncOtodom(sql: Sql): Promise<SyncResult> {
   await collectOtodom(sql);
   const after = await countOffers(sql, 'otodom');
   const tiers = await classifyOffers(sql);
+  await dedupeOffers(sql);
 
   return { source: 'otodom', seen: after, added: after - before, tiers };
 }
@@ -97,6 +99,7 @@ export async function ingestOlx(sql: Sql, body: unknown): Promise<SyncResult> {
   });
 
   const tiers = await classifyOffers(sql);
+  await dedupeOffers(sql);
   return { source: 'olx', seen: offers.length, added, tiers };
 }
 

@@ -46,8 +46,8 @@ export interface UpsertOptions {
   now?: string;
   /**
    * Set when the listing page was deliberately not read, so `offer` carries no
-   * description, pin or full payload. Without it the update would write those nulls
-   * over detail we already paid a request for.
+   * description, pin, advertiser or full payload. Without it the update would write
+   * those nulls over detail we already paid a request for.
    */
   preserveDetail?: boolean;
 }
@@ -67,7 +67,7 @@ export async function upsertOffer(
         price_pln, rent_pln, deposit_pln,
         area_m2, rooms, floor,
         city, district, subdistrict, street, lat, lng, coords_precision,
-        is_private_owner, status,
+        is_private_owner, advertiser, status,
         created_at_source, pushed_up_at, first_seen_at, last_seen_at, raw
       ) values (
         ${offer.source}, ${offer.sourceId}, ${offer.url}, ${offer.title}, ${offer.description},
@@ -75,7 +75,7 @@ export async function upsertOffer(
         ${offer.areaM2}, ${offer.rooms}, ${offer.floor},
         ${offer.city}, ${offer.district}, ${offer.subdistrict}, ${offer.street},
         ${offer.lat}, ${offer.lng}, ${offer.coordsPrecision},
-        ${offer.isPrivateOwner}, ${offer.status},
+        ${offer.isPrivateOwner}, ${offer.advertiser}, ${offer.status},
         ${offer.createdAtSource}, ${offer.pushedUpAt}, ${now}, ${now}, ${raw}
       )
       returning id
@@ -108,7 +108,8 @@ export async function upsertOffer(
         area_m2 = ${offer.areaM2}, rooms = ${offer.rooms}, floor = ${offer.floor},
         district = ${offer.district}, subdistrict = ${offer.subdistrict}, street = ${offer.street},
         lat = ${offer.lat}, lng = ${offer.lng}, coords_precision = ${offer.coordsPrecision},
-        is_private_owner = ${offer.isPrivateOwner}, status = ${offer.status},
+        is_private_owner = ${offer.isPrivateOwner}, advertiser = ${offer.advertiser},
+        status = ${offer.status},
         pushed_up_at = ${offer.pushedUpAt}, last_seen_at = ${now}, raw = ${raw}
       where id = ${existing.id}
     `;
@@ -177,6 +178,7 @@ function toStoredOffer(row: DbRow): StoredOffer {
     lng: readNullableNumber(row, 'lng'),
     coordsPrecision: toCoordsPrecision(readNullableString(row, 'coords_precision')),
     isPrivateOwner: readNullableBoolean(row, 'is_private_owner'),
+    advertiser: readNullableString(row, 'advertiser'),
     status: toStatus(readString(row, 'status')),
     createdAtSource: readNullableIso(row, 'created_at_source'),
     pushedUpAt: readNullableIso(row, 'pushed_up_at'),
@@ -211,7 +213,7 @@ export async function listOffersToClassify(
     select o.id, o.source, o.source_id, o.url, o.title, o.description,
            o.price_pln, o.rent_pln, o.deposit_pln, o.area_m2, o.rooms, o.floor,
            o.city, o.district, o.subdistrict, o.street, o.lat, o.lng, o.coords_precision,
-           o.is_private_owner, o.status, o.created_at_source, o.pushed_up_at
+           o.is_private_owner, o.advertiser, o.status, o.created_at_source, o.pushed_up_at
     from offers o
     left join classifications c on c.offer_id = o.id
     where c.offer_id is null or c.rules_version <> ${rulesVersion}

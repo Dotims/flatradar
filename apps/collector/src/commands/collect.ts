@@ -3,6 +3,7 @@ import { migrate } from '../db/migrate.ts';
 import { classifyOffers } from './classify.ts';
 import { collectOlx } from './collect-olx.ts';
 import { collectOtodom } from './collect-otodom.ts';
+import { dedupeOffers } from './dedupe.ts';
 
 const COLLECTORS = { olx: collectOlx, otodom: collectOtodom } as const;
 type SourceName = keyof typeof COLLECTORS;
@@ -40,8 +41,9 @@ export async function collectAll(): Promise<void> {
       }
     }
 
-    // Local, so it runs even when fetching failed.
+    // Local, so both run even when fetching failed.
     await classifyOffers(sql);
+    await dedupeOffers(sql);
   } finally {
     await sql.end();
   }

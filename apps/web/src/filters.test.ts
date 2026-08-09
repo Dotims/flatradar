@@ -32,6 +32,7 @@ function offer(overrides: Partial<Offer> = {}): Offer {
     createdAtSource: null,
     firstSeenAt: '2026-08-08T00:00:00.000Z',
     mark: null,
+    alsoOn: [],
     ...overrides,
   };
 }

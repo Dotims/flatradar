@@ -30,6 +30,8 @@ export interface Offer {
   createdAtSource: string | null;
   firstSeenAt: string;
   mark: Mark | null;
+  /** The same flat advertised elsewhere. Kept out of the list, reachable from here. */
+  alsoOn: { source: string; url: string }[];
 }
 
 /** When each portal was last collected, and whether that round worked. */

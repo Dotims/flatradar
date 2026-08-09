@@ -25,6 +25,7 @@ function offer(overrides: Partial<NormalizedOffer> = {}): NormalizedOffer {
     lng: null,
     coordsPrecision: null,
     isPrivateOwner: true,
+    advertiser: null,
     status: 'active',
     createdAtSource: null,
     pushedUpAt: null,

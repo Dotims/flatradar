@@ -38,6 +38,11 @@ function readDistrict(location: OtodomLocation): string | null {
   return location.address?.district?.name ?? districtFromGeocoding(location);
 }
 
+function blankToNull(value: string | null | undefined): string | null {
+  const trimmed = value?.trim();
+  return trimmed === undefined || trimmed === '' ? null : trimmed;
+}
+
 function toIsoOrNull(value: string | null | undefined): string | null {
   if (!value) return null;
   const date = new Date(value);
@@ -79,6 +84,12 @@ export function parseOtodomOffer(item: OtodomListItem, ad?: OtodomAd): Normalize
     coordsPrecision: coordinates === null ? null : radius === 0 ? 'exact' : 'approximate',
 
     isPrivateOwner: item.isPrivateOwner,
+    // The advert page names the agency even where the results page did not; private
+    // sellers are never named, which is why this is null for most listings.
+    advertiser:
+      blankToNull(ad?.agency?.name) ??
+      blankToNull(ad?.owner?.name) ??
+      blankToNull(item.agency?.name),
     status: 'active',
 
     // dateCreated moves on every edit, which would make an old flat look new.

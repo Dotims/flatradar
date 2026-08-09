@@ -47,6 +47,20 @@ export function OfferCard({
             </span>
             <span className="tag">/ {offer.source}</span>
             {offer.isPrivateOwner === true && <span className="tag">/ prywatne</span>}
+            {/* The same flat advertised twice. Hidden from the list, not from the owner. */}
+            {offer.alsoOn.map((other) => (
+              <a
+                key={other.url}
+                href={other.url}
+                target="_blank"
+                rel="noreferrer noopener"
+                onClick={(event) => event.stopPropagation()}
+                title={`To samo mieszkanie wystawione również na ${other.source}`}
+                className="tag text-signal-400 underline-offset-4 hover:underline"
+              >
+                / też na {other.source} ↗
+              </a>
+            ))}
           </div>
 
           {/* Two lines of room whether the title needs them or not. */}
