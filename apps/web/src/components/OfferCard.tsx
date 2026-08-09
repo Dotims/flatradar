@@ -26,7 +26,9 @@ export function OfferCard({
       onMouseEnter={() => onHover(offer.id)}
       onMouseLeave={() => onHover(null)}
       onClick={onSelect}
-      className={`rule @container relative rounded-xl bg-graphite-950 p-5 transition-colors duration-150 ${
+      // h-full so the card fills the grid row rather than setting its own height; the
+      // parts inside then reserve their space so a one-line title cannot shrink it.
+      className={`rule @container relative flex h-full flex-col rounded-xl bg-graphite-950 p-5 transition-colors duration-150 ${
         offer.mark === 'rejected' ? 'opacity-55' : ''
       } ${
         selected
@@ -38,7 +40,8 @@ export function OfferCard({
     >
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          {/* One line, never two: the tags are short and wrapping them moved the title. */}
+          <div className="flex items-center gap-x-2 overflow-hidden text-nowrap">
             <span className={`tag ${offer.tier === 'top' ? 'text-signal-400' : ''}`}>
               {tier.label}
             </span>
@@ -46,13 +49,16 @@ export function OfferCard({
             {offer.isPrivateOwner === true && <span className="tag">/ prywatne</span>}
           </div>
 
+          {/* Two lines of room whether the title needs them or not. */}
           <a
             href={offer.url}
             target="_blank"
             rel="noreferrer noopener"
             onClick={(event) => event.stopPropagation()}
             title={offer.title}
-            className="mt-2 line-clamp-2 block text-[0.95rem] leading-snug font-medium text-ink wrap-anywhere underline-offset-4 transition-colors hover:text-signal-300 hover:underline"
+            // No `block` here: it sets display and beats line-clamp's own, which is why
+            // long titles were running to three lines and pushing the card taller.
+            className="mt-2 line-clamp-2 min-h-[2.625rem] text-[0.95rem] leading-snug font-medium text-ink wrap-anywhere underline-offset-4 transition-colors hover:text-signal-300 hover:underline"
           >
             {offer.title}
           </a>
@@ -77,14 +83,19 @@ export function OfferCard({
           ['pokoje', rooms(offer.rooms)],
           ['najem/m²', pricePerM2(offer.pricePln, offer.areaM2)],
         ].map(([label, value]) => (
-          <div key={label}>
+          <div key={label} className="min-w-0">
             <dt className="tag">{label}</dt>
-            <dd className="num mt-0.5 text-sm text-ink-dim">{value}</dd>
+            {/* One line each. "Łagiewniki-Borek Fałęcki" wrapped in a narrow column and
+                took the whole card twenty pixels taller than its neighbour. */}
+            <dd className="num mt-0.5 truncate text-sm text-ink-dim" title={value}>
+              {value}
+            </dd>
           </div>
         ))}
       </dl>
 
-      <div className="mt-3 flex items-center justify-between gap-3 text-xs">
+      {/* mt-auto so this sits on the floor of the card however tall the row makes it. */}
+      <div className="mt-auto flex items-center justify-between gap-3 pt-3 text-xs">
         <span className="num text-ink-faint">
           {offer.rentPln === null
             ? `${pln(offer.pricePln)} · czynsz niepodany`
