@@ -1,49 +1,66 @@
-import type { Offer, SortKey, Tier } from './types.ts';
+import type { Offer, SortKey } from './types.ts';
 
+/** Every bound is optional: a blank box is a bound the owner did not ask for. */
 export interface Filters {
-  /** Upper bound on the full monthly cost, in PLN. */
-  maxCostPln: number;
-  /** Lower bound on the floor area, in square metres. */
-  minAreaM2: number;
-  tiers: Tier[];
-  districts: string[];
+  minCostPln: number | null;
+  maxCostPln: number | null;
+  minAreaM2: number | null;
+  maxAreaM2: number | null;
+  minRooms: number | null;
+  maxRooms: number | null;
+  /** Districts switched off. Anything new the portals report shows up by default. */
+  hiddenDistricts: string[];
   privateOnly: boolean;
 }
 
+/**
+ * The districts ruled out on 2026-08-08. They are a starting position rather than a
+ * rule now: the collector stores and scores every district, and this list only decides
+ * what the page opens with, so one click brings any of them back.
+ */
+export const DEFAULT_HIDDEN_DISTRICTS = [
+  'Bieńczyce',
+  'Bronowice',
+  'Czyżyny',
+  'Grzegórzki',
+  'Krowodrza',
+  'Mistrzejowice',
+  'Prądnik Biały',
+  'Prądnik Czerwony',
+  'Stare Miasto',
+  'Zwierzyniec',
+];
+
 export const DEFAULT_FILTERS: Filters = {
+  minCostPln: null,
   maxCostPln: 2600,
-  minAreaM2: 0,
-  tiers: ['top', 'worth'],
-  districts: [],
+  minAreaM2: null,
+  maxAreaM2: null,
+  minRooms: null,
+  maxRooms: null,
+  hiddenDistricts: DEFAULT_HIDDEN_DISTRICTS,
   privateOnly: false,
 };
 
 export const NO_DISTRICT = '(brak dzielnicy)';
 
-/**
- * Free of React so it can be tested directly. A listing missing the value a filter asks
- * about is kept: half the portal fields are optional.
- *
- * The cost cap does not apply to `worth`. That tier is defined as a total above the
- * all-in limit, so capping it by total made the whole tier unreachable whenever the cap
- * sat at the budget: the pill was lit, the count said six, and the list held none.
- */
+function outsideRange(value: number | null, min: number | null, max: number | null): boolean {
+  // A listing missing the value a filter asks about is kept: half the portal fields
+  // are optional and dropping them would quietly shrink the search.
+  if (value === null) return false;
+  if (min !== null && value < min) return true;
+  return max !== null && value > max;
+}
+
+/** Free of React so it can be tested directly. */
 export function applyFilters(offers: Offer[], filters: Filters): Offer[] {
   return offers.filter((offer) => {
-    const cappedByCost = offer.tier !== 'worth';
-    if (cappedByCost && offer.totalCostPln !== null && offer.totalCostPln > filters.maxCostPln) {
-      return false;
-    }
-    if (offer.areaM2 !== null && offer.areaM2 < filters.minAreaM2) return false;
-    if (filters.tiers.length > 0 && !filters.tiers.includes(offer.tier)) return false;
+    if (outsideRange(offer.totalCostPln, filters.minCostPln, filters.maxCostPln)) return false;
+    if (outsideRange(offer.areaM2, filters.minAreaM2, filters.maxAreaM2)) return false;
+    if (outsideRange(offer.rooms, filters.minRooms, filters.maxRooms)) return false;
     if (filters.privateOnly && offer.isPrivateOwner === false) return false;
 
-    if (filters.districts.length > 0) {
-      const district = offer.district ?? NO_DISTRICT;
-      if (!filters.districts.includes(district)) return false;
-    }
-
-    return true;
+    return !filters.hiddenDistricts.includes(offer.district ?? NO_DISTRICT);
   });
 }
 

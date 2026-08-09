@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { FilterRail } from './components/FilterRail.tsx';
+import { FilterBar } from './components/FilterBar.tsx';
 import { OfferCard } from './components/OfferCard.tsx';
 import { OfferDetail } from './components/OfferDetail.tsx';
 import { OfferMap } from './components/OfferMap.tsx';
@@ -15,6 +15,7 @@ import {
   type Filters,
 } from './filters.ts';
 import { minutesSince, since } from './format.ts';
+import { useTheme } from './theme.ts';
 import type { Offer, SortKey, SourceStatus, Tier } from './types.ts';
 
 /*
@@ -22,17 +23,22 @@ import type { Offer, SortKey, SourceStatus, Tier } from './types.ts';
   the pipeline itself rather than the dashboard's usual row of stat tiles.
   OWN-WORLD: true black ground, graphite panels, 1px lines, no shadows; one warm
   yellow-orange accent that lights only what is decided; monospace on every number,
-  parameter and tag, sans for prose.
-  STORY: the visitor sees where listings come from and what happened to them, reads the
-  ones that survived, then checks where they are.
-  FIRST VIEWPORT: the graph across the top, sources left, rules lit in the middle, tiers
-  right; the sync action sits in the masthead beside the freshness stamp.
-  FORM: node-graph pipeline, pinned by the brief, no roll run.
+  parameter and tag, sans for prose. Light is the same world with the values swapped.
+  STORY: the visitor sets the bounds, reads the listings that survive them, then checks
+  where they are.
+  FIRST VIEWPORT: freshness, the bounds, then listings on the left and the map on the
+  right, wide enough to read at a glance.
+  FORM: node-graph pipeline, pinned by the brief, folded away by default.
   FINISH: unreviewed and undocumented is unfinished; this build ends with the finish
   review, the verdict, and DESIGN.md
 */
 
-const REFRESH_MS = 60_000;
+/**
+ * Collection runs every fifteen minutes, so polling every minute asked for the same
+ * answer fourteen times over. It matters more now the list is thousands of rows rather
+ * than the few hundred it was written for. The sync button covers wanting it sooner.
+ */
+const REFRESH_MS = 300_000;
 
 /** A background poll may fail quietly once; two in a row means the API is gone. */
 const FAILURES_BEFORE_DISCONNECTED = 2;
@@ -53,17 +59,7 @@ export function App() {
   const [mapOpen, setMapOpen] = useState(false);
   const [sort, setSort] = useState<SortKey>('newest');
   const [selectedId, setSelectedId] = useState<number | null>(null);
-
-  const toggleTier = useCallback(
-    (tier: Tier) =>
-      setFilters((current) => ({
-        ...current,
-        tiers: current.tiers.includes(tier)
-          ? current.tiers.filter((item) => item !== tier)
-          : [...current.tiers, tier],
-      })),
-    [],
-  );
+  const { theme, toggle: toggleTheme } = useTheme();
 
   const load = useCallback(async (signal?: AbortSignal) => {
     const response = await fetch('/api/offers', signal ? { signal } : {});
@@ -164,14 +160,23 @@ export function App() {
 
   const unlocated = useMemo(() => visible.filter((offer) => offer.lat === null), [visible]);
 
-  /** Names the filter actually responsible, rather than the two easiest to mention. */
+  /** Names the bound actually responsible, rather than the two easiest to mention. */
   const activeFilterHint = useMemo(() => {
     const narrowed: string[] = [];
-    if (filters.districts.length > 0) narrowed.push(`dzielnice (${filters.districts.length})`);
+    const range = (label: string, from: number | null, to: number | null, unit: string) => {
+      if (from === null && to === null) return;
+      if (from !== null && to !== null) narrowed.push(`${label} ${from}-${to} ${unit}`);
+      else if (from !== null) narrowed.push(`${label} od ${from} ${unit}`);
+      else narrowed.push(`${label} do ${String(to)} ${unit}`);
+    };
+
+    range('koszt', filters.minCostPln, filters.maxCostPln, 'zł');
+    range('metraż', filters.minAreaM2, filters.maxAreaM2, 'm²');
+    range('pokoje', filters.minRooms, filters.maxRooms, '');
     if (filters.privateOnly) narrowed.push('tylko prywatne');
-    if (filters.minAreaM2 > 0) narrowed.push(`metraż od ${filters.minAreaM2} m²`);
-    if (filters.tiers.length < 3) narrowed.push('ocena');
-    narrowed.push(`koszt do ${filters.maxCostPln} zł`);
+    if (filters.hiddenDistricts.length > 0) {
+      narrowed.push(`${filters.hiddenDistricts.length} ukrytych dzielnic`);
+    }
 
     return narrowed.length === 0 ? null : `Zawężają: ${narrowed.join(', ')}.`;
   }, [filters]);
@@ -204,7 +209,7 @@ export function App() {
           <p className="mt-2 text-sm text-ink-dim">
             Zwykle znaczy to, że nie działa API. Uruchom je w drugim terminalu:
           </p>
-          <pre className="rule mt-3 rounded-lg bg-void px-3 py-2 font-mono text-sm text-signal-300">
+          <pre className="rule mt-3 rounded-lg bg-graphite-900 px-3 py-2 font-mono text-sm text-signal-300">
             pnpm serve
           </pre>
           <p className="tag mt-3 normal-case">{error}</p>
@@ -214,8 +219,8 @@ export function App() {
   }
 
   return (
-    <div className="mx-auto max-w-[100rem] px-5 pb-24 sm:px-8 lg:px-12">
-      <header className="flex flex-wrap items-center justify-between gap-x-8 gap-y-4 py-8 lg:py-12">
+    <div className="mx-auto max-w-[110rem] px-5 pb-24 sm:px-8 lg:px-12">
+      <header className="flex flex-wrap items-center justify-between gap-x-8 gap-y-4 py-8 lg:py-10">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">
             Flat<span className="lit">Radar</span>
@@ -243,9 +248,17 @@ export function App() {
           )}
           <button
             type="button"
+            onClick={toggleTheme}
+            aria-label={theme === 'dark' ? 'Włącz jasny motyw' : 'Włącz ciemny motyw'}
+            className="tag rounded-full border border-line px-3 py-1.5 normal-case transition-colors hover:border-line-strong hover:text-ink-dim"
+          >
+            {theme === 'dark' ? 'jasny' : 'ciemny'}
+          </button>
+          <button
+            type="button"
             onClick={() => void sync()}
             disabled={syncing}
-            className="rounded-full bg-gradient-to-r from-signal-400 to-signal-600 px-5 py-2 font-mono text-[0.6875rem] tracking-[0.08em] text-void uppercase transition-opacity duration-150 hover:opacity-90 disabled:opacity-50"
+            className="rounded-full bg-gradient-to-r from-signal-400 to-signal-600 px-5 py-2 font-mono text-[0.6875rem] tracking-[0.08em] text-on-signal uppercase transition-opacity duration-150 hover:opacity-90 disabled:opacity-50"
           >
             {syncing ? 'skanuję…' : 'synchronizuj'}
           </button>
@@ -255,26 +268,24 @@ export function App() {
       <StatusStrip
         counts={counts}
         sources={sources}
-        selectedTiers={filters.tiers}
-        onToggleTier={toggleTier}
         expanded={graphOpen}
         onToggleExpanded={() => setGraphOpen((open) => !open)}
       />
 
       {graphOpen && (
         <div className="mt-6 overflow-x-clip">
-          <PipelineGraph
-            counts={counts}
-            rulesVersion="v3"
-            sources={sources}
-            selectedTiers={filters.tiers}
-            onToggleTier={toggleTier}
-          />
+          <PipelineGraph counts={counts} rulesVersion="v4" sources={sources} />
         </div>
       )}
 
-      <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,1fr)_15rem] lg:gap-10 2xl:grid-cols-[minmax(0,1fr)_26rem_15rem]">
-        <div className="min-w-0 lg:order-1">
+      <div className="mt-6">
+        <FilterBar filters={filters} districts={districts} onChange={setFilters} />
+      </div>
+
+      {/* Two columns once there is room: listings to read, map to place them. The bounds
+          moved to the bar above so the map keeps a column it can actually be read in. */}
+      <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(26rem,42%)] lg:gap-10">
+        <div className="min-w-0">
           <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2 border-b border-line pb-3">
             <div className="flex flex-wrap items-baseline gap-x-3 gap-y-2">
               <h2 className="text-sm font-medium text-ink-dim">Oferty</h2>
@@ -314,7 +325,7 @@ export function App() {
               )}
             </p>
           ) : (
-            <ul className="mt-6 grid list-none gap-3 xl:grid-cols-2">
+            <ul className="mt-6 grid list-none gap-3 2xl:grid-cols-2">
               {visible.map((offer) => (
                 <li key={offer.id}>
                   <OfferCard
@@ -330,70 +341,74 @@ export function App() {
           )}
         </div>
 
-        {/* Wide enough for a third column: the map sits beside the list, tall rather
-            than letterboxed, and both stay visible while hovering links them. */}
-        <div className="hidden 2xl:order-2 2xl:block">
+        <div className="hidden lg:block">
           <div className="sticky top-6 flex h-[calc(100dvh-3rem)] flex-col gap-3">
-            {selected === null ? (
-              <>
-                <div className="min-h-0 flex-1">
-                  <OfferMap
-                    offers={visible}
-                    activeId={activeId}
-                    selectedId={selectedId}
-                    onHover={setActiveId}
-                    onSelect={setSelectedId}
-                  />
-                </div>
-                <UnlocatedPanel
-                  offers={unlocated}
-                  activeId={activeId}
-                  onHover={setActiveId}
-                  onSelect={setSelectedId}
-                />
-              </>
-            ) : (
-              <OfferDetail offer={selected} onClose={() => setSelectedId(null)} />
-            )}
+            <div className="min-h-0 flex-1">
+              <OfferMap
+                offers={visible}
+                activeId={activeId}
+                selectedId={selectedId}
+                theme={theme}
+                onHover={setActiveId}
+              />
+            </div>
+            <UnlocatedPanel
+              offers={unlocated}
+              activeId={activeId}
+              onHover={setActiveId}
+              onSelect={setSelectedId}
+            />
           </div>
         </div>
-
-        <aside className="lg:order-3 lg:sticky lg:top-6 lg:max-h-[calc(100dvh-3rem)] lg:self-start lg:overflow-y-auto lg:pr-1">
-          <FilterRail filters={filters} districts={districts} onChange={setFilters} />
-
-          {/* Below the third-column breakpoint the map is a panel, closed by default,
-              so it never pushes the listings past the fold. */}
-          <div className="mt-8 2xl:hidden">
-            <button
-              type="button"
-              onClick={() => setMapOpen((open) => !open)}
-              aria-expanded={mapOpen}
-              className="tag normal-case transition-colors hover:text-ink-dim"
-            >
-              {mapOpen ? 'ukryj mapę' : `pokaż mapę · ${visible.length - unlocated.length}`}
-            </button>
-            {mapOpen && (
-              <div className="mt-3 grid gap-3">
-                <div className="h-80">
-                  <OfferMap
-                    offers={visible}
-                    activeId={activeId}
-                    selectedId={selectedId}
-                    onHover={setActiveId}
-                    onSelect={setSelectedId}
-                  />
-                </div>
-                <UnlocatedPanel
-                  offers={unlocated}
-                  activeId={activeId}
-                  onHover={setActiveId}
-                  onSelect={setSelectedId}
-                />
-              </div>
-            )}
-          </div>
-        </aside>
       </div>
+
+      {/* Below the two-column breakpoint the map is a panel, closed by default, so it
+          never pushes the listings past the fold. */}
+      <div className="mt-8 lg:hidden">
+        <button
+          type="button"
+          onClick={() => setMapOpen((open) => !open)}
+          aria-expanded={mapOpen}
+          className="tag normal-case transition-colors hover:text-ink-dim"
+        >
+          {mapOpen ? 'ukryj mapę' : `pokaż mapę · ${visible.length - unlocated.length}`}
+        </button>
+        {mapOpen && (
+          <div className="mt-3 grid gap-3">
+            <div className="h-96">
+              <OfferMap
+                offers={visible}
+                activeId={activeId}
+                selectedId={selectedId}
+                theme={theme}
+                onHover={setActiveId}
+              />
+            </div>
+            <UnlocatedPanel
+              offers={unlocated}
+              activeId={activeId}
+              onHover={setActiveId}
+              onSelect={setSelectedId}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Opened from a listing card. An overlay rather than a third column: the map was
+          shrunk by exactly this kind of neighbour. */}
+      {selected !== null && (
+        <>
+          <button
+            type="button"
+            aria-label="Zamknij szczegóły"
+            onClick={() => setSelectedId(null)}
+            className="fixed inset-0 z-40 bg-scrim/60 backdrop-blur-[2px]"
+          />
+          <div className="fixed inset-y-0 right-0 z-50 w-full max-w-md p-3 sm:p-4">
+            <OfferDetail offer={selected} onClose={() => setSelectedId(null)} />
+          </div>
+        </>
+      )}
     </div>
   );
 }

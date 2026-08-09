@@ -42,10 +42,20 @@ async function findExisting(
   };
 }
 
+export interface UpsertOptions {
+  now?: string;
+  /**
+   * Set when the listing page was deliberately not read, so `offer` carries no
+   * description, pin or full payload. Without it the update would write those nulls
+   * over detail we already paid a request for.
+   */
+  preserveDetail?: boolean;
+}
+
 export async function upsertOffer(
   sql: Queryable,
   offer: NormalizedOffer,
-  now: string = new Date().toISOString(),
+  { now = new Date().toISOString(), preserveDetail = false }: UpsertOptions = {},
 ): Promise<UpsertResult> {
   const existing = await findExisting(sql, offer.source, offer.sourceId);
   const raw = JSON.stringify(offer.raw);
@@ -78,18 +88,31 @@ export async function upsertOffer(
   }
 
   // Only what an advertiser can edit. first_seen_at is ours, not the portal's.
-  await sql`
-    update offers set
-      url = ${offer.url}, title = ${offer.title}, description = ${offer.description},
-      price_pln = ${offer.pricePln}, rent_pln = ${offer.rentPln},
-      deposit_pln = ${offer.depositPln},
-      area_m2 = ${offer.areaM2}, rooms = ${offer.rooms}, floor = ${offer.floor},
-      district = ${offer.district}, subdistrict = ${offer.subdistrict}, street = ${offer.street},
-      lat = ${offer.lat}, lng = ${offer.lng}, coords_precision = ${offer.coordsPrecision},
-      is_private_owner = ${offer.isPrivateOwner}, status = ${offer.status},
-      pushed_up_at = ${offer.pushedUpAt}, last_seen_at = ${now}, raw = ${raw}
-    where id = ${existing.id}
-  `;
+  if (preserveDetail) {
+    await sql`
+      update offers set
+        url = ${offer.url}, title = ${offer.title},
+        price_pln = ${offer.pricePln}, rent_pln = ${offer.rentPln},
+        deposit_pln = ${offer.depositPln},
+        area_m2 = ${offer.areaM2}, rooms = ${offer.rooms}, floor = ${offer.floor},
+        is_private_owner = ${offer.isPrivateOwner}, status = ${offer.status},
+        pushed_up_at = ${offer.pushedUpAt}, last_seen_at = ${now}
+      where id = ${existing.id}
+    `;
+  } else {
+    await sql`
+      update offers set
+        url = ${offer.url}, title = ${offer.title}, description = ${offer.description},
+        price_pln = ${offer.pricePln}, rent_pln = ${offer.rentPln},
+        deposit_pln = ${offer.depositPln},
+        area_m2 = ${offer.areaM2}, rooms = ${offer.rooms}, floor = ${offer.floor},
+        district = ${offer.district}, subdistrict = ${offer.subdistrict}, street = ${offer.street},
+        lat = ${offer.lat}, lng = ${offer.lng}, coords_precision = ${offer.coordsPrecision},
+        is_private_owner = ${offer.isPrivateOwner}, status = ${offer.status},
+        pushed_up_at = ${offer.pushedUpAt}, last_seen_at = ${now}, raw = ${raw}
+      where id = ${existing.id}
+    `;
+  }
 
   const priceChanged = existing.pricePln !== offer.pricePln || existing.rentPln !== offer.rentPln;
   if (priceChanged) {
@@ -160,6 +183,23 @@ function toStoredOffer(row: DbRow): StoredOffer {
     // Not selected: classification reads none of it.
     raw: null,
   };
+}
+
+/**
+ * Listings whose detail page has already been read. The backfill walks thousands of
+ * results and the listing page costs a request each, so anything already carrying a
+ * description and a pin is left alone.
+ */
+export async function listDetailedSourceIds(
+  sql: Queryable,
+  source: OfferSource,
+): Promise<Set<string>> {
+  const rows = await sql<DbRow[]>`
+    select source_id from offers
+    where source = ${source} and description is not null and lat is not null
+  `;
+
+  return new Set(rows.map((row) => readString(row, 'source_id')));
 }
 
 /** Listings with no verdict or an outdated one. Bumping RULES_VERSION reclassifies all. */

@@ -91,13 +91,37 @@ describe(
     });
 
     test('an update leaves the first-seen date alone', async () => {
-      await upsertOffer(sql, offer(), '2026-08-01T00:00:00.000Z');
-      await upsertOffer(sql, offer({ title: 'Nowy tytuł' }), '2026-08-05T00:00:00.000Z');
+      await upsertOffer(sql, offer(), { now: '2026-08-01T00:00:00.000Z' });
+      await upsertOffer(sql, offer({ title: 'Nowy tytuł' }), { now: '2026-08-05T00:00:00.000Z' });
 
       const [row] = await sql`select first_seen_at, last_seen_at, title from offers`;
       assert.equal((row?.first_seen_at as Date).toISOString(), '2026-08-01T00:00:00.000Z');
       assert.equal((row?.last_seen_at as Date).toISOString(), '2026-08-05T00:00:00.000Z');
       assert.equal(row?.title, 'Nowy tytuł');
+    });
+
+    test('preserveDetail keeps the detail a later detail-less pass does not carry', async () => {
+      // The backfill re-reads listings it already detailed and would otherwise write
+      // its empty description, pin and payload straight over them.
+      await upsertOffer(
+        sql,
+        offer({
+          description: 'Pełny opis.',
+          lat: 50.05,
+          lng: 19.94,
+          coordsPrecision: 'exact',
+          raw: { ad: { images: ['a.jpg'] } },
+        }),
+      );
+
+      await upsertOffer(sql, offer({ pricePln: 1900 }), { preserveDetail: true });
+
+      const [row] = await sql`select description, lat, price_pln, raw from offers`;
+      assert.equal(row?.description, 'Pełny opis.');
+      assert.equal(Number(row?.lat), 50.05);
+      assert.equal(Number(row?.price_pln), 1900);
+      // jsonb arrives as text from this driver, so compare the parsed payload.
+      assert.deepEqual(JSON.parse(String(row?.raw)), { ad: { images: ['a.jpg'] } });
     });
 
     test('the same id on two portals means two separate listings', async () => {

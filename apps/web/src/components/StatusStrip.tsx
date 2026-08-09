@@ -1,6 +1,5 @@
 import { minutesSince, since } from '../format.ts';
-import { TIER } from '../tiers.ts';
-import type { SourceStatus, Tier } from '../types.ts';
+import type { SourceStatus } from '../types.ts';
 import type { PipelineCounts } from './PipelineGraph.tsx';
 
 const STALE_AFTER_MIN = 40;
@@ -31,21 +30,17 @@ function Feed({ status, name }: { status: SourceStatus | undefined; name: string
 
 /**
  * The pipeline as one line. The full graph explains the system and the owner settled
- * those questions weeks ago, so it folds away and this keeps the two facts that change:
- * how fresh each feed is, and how many listings sit in each verdict.
+ * those questions weeks ago, so it folds away and this keeps the fact that changes:
+ * how fresh each feed is.
  */
 export function StatusStrip({
   counts,
   sources,
-  selectedTiers,
-  onToggleTier,
   expanded,
   onToggleExpanded,
 }: {
   counts: PipelineCounts;
   sources: SourceStatus[];
-  selectedTiers: Tier[];
-  onToggleTier: (tier: Tier) => void;
   expanded: boolean;
   onToggleExpanded: () => void;
 }) {
@@ -60,30 +55,10 @@ export function StatusStrip({
 
       <span className="hidden h-4 w-px bg-line sm:block" />
 
-      <div className="flex flex-wrap items-center gap-2">
-        {(['top', 'worth', 'other'] as const).map((tier) => {
-          const on = selectedTiers.includes(tier);
-          return (
-            <button
-              key={tier}
-              type="button"
-              onClick={() => onToggleTier(tier)}
-              aria-pressed={on}
-              title={TIER[tier].rule}
-              className={`flex items-baseline gap-1.5 rounded-full border px-3 py-1 transition-colors duration-150 ${
-                on
-                  ? 'border-signal-500/60 bg-signal-500/10'
-                  : 'border-line hover:border-line-strong'
-              }`}
-            >
-              <span className={`num text-sm ${tier === 'top' && on ? 'lit-num' : 'text-ink'}`}>
-                {counts.tiers[tier]}
-              </span>
-              <span className="tag">{TIER[tier].label}</span>
-            </button>
-          );
-        })}
-      </div>
+      <span className="flex items-baseline gap-1.5">
+        <span className="num text-sm text-ink">{counts.total}</span>
+        <span className="tag">ofert w bazie</span>
+      </span>
 
       <button
         type="button"
@@ -91,7 +66,7 @@ export function StatusStrip({
         aria-expanded={expanded}
         className="tag ml-auto normal-case transition-colors hover:text-ink-dim"
       >
-        {expanded ? 'zwiń przepływ' : `przepływ · ${counts.total} ocenionych`}
+        {expanded ? 'zwiń przepływ' : 'przepływ'}
       </button>
     </div>
   );

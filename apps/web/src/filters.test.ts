@@ -1,6 +1,12 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { applyFilters, availableDistricts, DEFAULT_FILTERS, NO_DISTRICT } from './filters.ts';
+import {
+  applyFilters,
+  availableDistricts,
+  DEFAULT_FILTERS,
+  DEFAULT_HIDDEN_DISTRICTS,
+  NO_DISTRICT,
+} from './filters.ts';
 import type { Offer } from './types.ts';
 
 function offer(overrides: Partial<Offer> = {}): Offer {
@@ -29,66 +35,78 @@ function offer(overrides: Partial<Offer> = {}): Offer {
   };
 }
 
+/** No bounds at all, so each case states only the one it is about. */
+const OPEN = {
+  ...DEFAULT_FILTERS,
+  maxCostPln: null,
+  hiddenDistricts: [],
+};
+
 test('keeps a listing that satisfies every filter', () => {
   assert.equal(applyFilters([offer()], DEFAULT_FILTERS).length, 1);
 });
 
 test('drops a listing above the cost limit', () => {
-  const offers = [offer({ totalCostPln: 2700 })];
-  assert.equal(applyFilters(offers, { ...DEFAULT_FILTERS, maxCostPln: 2600 }).length, 0);
+  assert.equal(
+    applyFilters([offer({ totalCostPln: 2700 })], { ...OPEN, maxCostPln: 2600 }).length,
+    0,
+  );
 });
 
-test('the cost limit does not apply to the cheap-rent tier', () => {
-  // That tier is defined as a total above the all-in limit, so capping it by total hid
-  // the entire tier whenever the cap sat at the budget.
-  const offers = [offer({ tier: 'worth', totalCostPln: 3050 })];
-  assert.equal(applyFilters(offers, { ...DEFAULT_FILTERS, maxCostPln: 2600 }).length, 1);
+test('drops a listing below the cost floor', () => {
+  assert.equal(
+    applyFilters([offer({ totalCostPln: 1200 })], { ...OPEN, minCostPln: 1500 }).length,
+    0,
+  );
 });
 
-test('the shipped defaults can return every tier they ask for', () => {
-  const offers = [
-    offer({ id: 1, tier: 'top', totalCostPln: 2400 }),
-    offer({ id: 2, tier: 'worth', totalCostPln: 2900 }),
-  ];
-  const kept = applyFilters(offers, DEFAULT_FILTERS).map((item) => item.tier);
-  assert.deepEqual(kept, ['top', 'worth']);
+test('the cost range keeps what sits inside it', () => {
+  const offers = [offer({ totalCostPln: 2300 })];
+  assert.equal(applyFilters(offers, { ...OPEN, minCostPln: 2000, maxCostPln: 2600 }).length, 1);
 });
 
-test('drops a listing below the area limit', () => {
-  const offers = [offer({ areaM2: 25 })];
-  assert.equal(applyFilters(offers, { ...DEFAULT_FILTERS, minAreaM2: 35 }).length, 0);
+test('the tier no longer decides anything', () => {
+  // The verdict is still computed and still shown; it stopped being a filter because
+  // "w budżecie" is measured on rent alone and read as arbitrary.
+  const offers = [offer({ tier: 'other', totalCostPln: 2400 })];
+  assert.equal(applyFilters(offers, { ...OPEN, maxCostPln: 2600 }).length, 1);
 });
 
-test('keeps a listing whose area the portal never stated', () => {
-  // Dropping these would quietly shrink the search over a field advertisers skip.
-  const offers = [offer({ areaM2: null })];
-  assert.equal(applyFilters(offers, { ...DEFAULT_FILTERS, minAreaM2: 35 }).length, 1);
+test('area and room counts are ranges too', () => {
+  const offers = [offer({ areaM2: 25, rooms: 1 })];
+  assert.equal(applyFilters(offers, { ...OPEN, minAreaM2: 35 }).length, 0);
+  assert.equal(applyFilters(offers, { ...OPEN, maxAreaM2: 20 }).length, 0);
+  assert.equal(applyFilters(offers, { ...OPEN, minAreaM2: 20, maxAreaM2: 30 }).length, 1);
+  assert.equal(applyFilters(offers, { ...OPEN, minRooms: 2 }).length, 0);
+  assert.equal(applyFilters(offers, { ...OPEN, maxRooms: 2 }).length, 1);
 });
 
-test('keeps a listing whose total could not be computed', () => {
-  const offers = [offer({ totalCostPln: null })];
-  assert.equal(applyFilters(offers, { ...DEFAULT_FILTERS, maxCostPln: 1000 }).length, 1);
+test('a value the portal never stated is never a reason to drop a listing', () => {
+  const blank = offer({ areaM2: null, totalCostPln: null, rooms: null });
+  const bounded = { ...OPEN, minAreaM2: 35, maxCostPln: 1000, minRooms: 3 };
+  assert.equal(applyFilters([blank], bounded).length, 1);
 });
 
-test('an empty tier list means every tier', () => {
-  const offers = [offer({ tier: 'other' })];
-  assert.equal(applyFilters(offers, { ...DEFAULT_FILTERS, tiers: [] }).length, 1);
+test('hidden districts are the ones removed', () => {
+  const offers = [offer({ district: 'Podgórze' }), offer({ id: 2, district: 'Krowodrza' })];
+  const kept = applyFilters(offers, { ...OPEN, hiddenDistricts: ['Krowodrza'] });
+  assert.deepEqual(
+    kept.map((item) => item.id),
+    [1],
+  );
 });
 
-test('the tier filter keeps only the tiers asked for', () => {
-  const offers = [offer({ tier: 'top' }), offer({ id: 2, tier: 'other' })];
-  assert.equal(applyFilters(offers, { ...DEFAULT_FILTERS, tiers: ['top'] }).length, 1);
+test('the shipped defaults hide the districts the owner ruled out', () => {
+  assert.ok(DEFAULT_HIDDEN_DISTRICTS.includes('Krowodrza'));
+  assert.equal(applyFilters([offer({ district: 'Krowodrza' })], DEFAULT_FILTERS).length, 0);
+  assert.equal(applyFilters([offer({ district: 'Podgórze' })], DEFAULT_FILTERS).length, 1);
 });
 
-test('an empty district list means every district', () => {
-  const offers = [offer({ district: 'Podgórze' })];
-  assert.equal(applyFilters(offers, { ...DEFAULT_FILTERS, districts: [] }).length, 1);
-});
-
-test('a listing with no district is reachable through its own entry', () => {
-  const offers = [offer({ district: null })];
-  assert.equal(applyFilters(offers, { ...DEFAULT_FILTERS, districts: ['Dębniki'] }).length, 0);
-  assert.equal(applyFilters(offers, { ...DEFAULT_FILTERS, districts: [NO_DISTRICT] }).length, 1);
+test('a listing with no district survives the default view', () => {
+  // Advertisers leave the field blank often enough that hiding these would cost real offers.
+  assert.equal(applyFilters([offer({ district: null })], DEFAULT_FILTERS).length, 1);
+  const hidden = { ...OPEN, hiddenDistricts: [NO_DISTRICT] };
+  assert.equal(applyFilters([offer({ district: null })], hidden).length, 0);
 });
 
 test('the private filter drops agency listings but keeps unknown ones', () => {
@@ -97,7 +115,7 @@ test('the private filter drops agency listings but keeps unknown ones', () => {
     offer({ id: 2, isPrivateOwner: null }),
     offer({ id: 3, isPrivateOwner: true }),
   ];
-  const kept = applyFilters(offers, { ...DEFAULT_FILTERS, privateOnly: true });
+  const kept = applyFilters(offers, { ...OPEN, privateOnly: true });
   assert.deepEqual(
     kept.map((item) => item.id),
     [2, 3],

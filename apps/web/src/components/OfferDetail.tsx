@@ -90,22 +90,23 @@ export function OfferDetail({ offer, onClose }: { offer: Offer; onClose: () => v
               loading="lazy"
               className="aspect-[4/3] w-full bg-graphite-900 object-cover"
             />
+            {/* A photograph brings its own ground, so this strip stays dark in both themes. */}
             {photos.length > 1 && (
-              <div className="absolute inset-x-0 bottom-0 flex items-center justify-between bg-gradient-to-t from-void/90 to-transparent p-2">
+              <div className="absolute inset-x-0 bottom-0 flex items-center justify-between bg-gradient-to-t from-scrim/90 to-transparent p-2">
                 <button
                   type="button"
                   onClick={() => setPhoto((index) => (index - 1 + photos.length) % photos.length)}
-                  className="tag rounded-full border border-line bg-void/80 px-2.5 py-1 normal-case"
+                  className="tag rounded-full border border-white/25 bg-scrim/70 px-2.5 py-1 text-white/80 normal-case"
                 >
                   ‹
                 </button>
-                <span className="num text-[0.7rem] text-ink-dim">
+                <span className="num text-[0.7rem] text-white/80">
                   {photo + 1} / {photos.length}
                 </span>
                 <button
                   type="button"
                   onClick={() => setPhoto((index) => (index + 1) % photos.length)}
-                  className="tag rounded-full border border-line bg-void/80 px-2.5 py-1 normal-case"
+                  className="tag rounded-full border border-white/25 bg-scrim/70 px-2.5 py-1 text-white/80 normal-case"
                 >
                   ›
                 </button>
@@ -166,7 +167,7 @@ export function OfferDetail({ offer, onClose }: { offer: Offer; onClose: () => v
           href={offer.url}
           target="_blank"
           rel="noreferrer noopener"
-          className="block rounded-full bg-gradient-to-r from-signal-400 to-signal-600 px-4 py-2 text-center font-mono text-[0.6875rem] tracking-[0.08em] text-void uppercase transition-opacity hover:opacity-90"
+          className="block rounded-full bg-gradient-to-r from-signal-400 to-signal-600 px-4 py-2 text-center font-mono text-[0.6875rem] tracking-[0.08em] text-on-signal uppercase transition-opacity hover:opacity-90"
         >
           otwórz na {offer.source}
         </a>

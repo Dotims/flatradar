@@ -123,18 +123,15 @@ function Node({
   );
 }
 
+/** Read-only. The verdict explains what the pipeline did; the filters decide what shows. */
 export function PipelineGraph({
   counts,
   rulesVersion,
   sources,
-  selectedTiers,
-  onToggleTier,
 }: {
   counts: PipelineCounts;
   rulesVersion: string;
   sources: SourceStatus[];
-  selectedTiers: Tier[];
-  onToggleTier: (tier: Tier) => void;
 }) {
   const byName = (name: string) => sources.find((status) => status.source === name);
   const olxStatus = byName('olx');
@@ -148,8 +145,6 @@ export function PipelineGraph({
       unit={unit}
       mark={TIER_MARK[tier]}
       accent={accent}
-      selected={selectedTiers.includes(tier)}
-      onToggle={() => onToggleTier(tier)}
     />
   );
 

@@ -39,20 +39,16 @@ test('a cheap flat in the right district is top', () => {
   assert.equal(result.totalCostPln, 2300);
 });
 
-test('an excluded district rules out a listing whatever it costs', () => {
+test('the district does not change the verdict', () => {
+  // Districts moved to the dashboard, where they are a filter the owner can lift.
+  // A verdict is about money; leaving the district in here would bake one afternoon's
+  // preference into stored rows and need a recompute every time it changed.
   const result = classify(offer({ district: 'Krowodrza', pricePln: 900, rentPln: 0 }));
-  assert.equal(result.tier, 'other');
-  assert.ok(result.reasons.some((reason) => reason.includes('excluded district')));
+  assert.equal(result.tier, 'top');
 });
 
-test('a listing with no district set is kept', () => {
-  // Advertisers leave the field blank often enough that dropping these would hide
-  // real offers, so the absence of a district is not a reason to reject.
+test('a listing with no district set is classified like any other', () => {
   assert.equal(classify(offer({ district: null })).tier, 'top');
-});
-
-test('district matching ignores casing and stray whitespace', () => {
-  assert.equal(classify(offer({ district: '  krowodrza ' })).tier, 'other');
 });
 
 test('a missing building fee is assumed rather than treated as zero', () => {

@@ -1,5 +1,4 @@
 import { readDescriptionCosts } from './cost.ts';
-import { isExcludedDistrict } from './districts.ts';
 import type { NormalizedOffer } from './offer.ts';
 
 export type Tier = 'top' | 'worth' | 'other';
@@ -8,7 +7,7 @@ export type Tier = 'top' | 'worth' | 'other';
 export type CostCertainty = 'exact' | 'all_in' | 'estimated' | 'uncertain';
 
 /** Bump on any rule change below; stored with every verdict so old ones get recomputed. */
-export const RULES_VERSION = 3;
+export const RULES_VERSION = 4;
 
 /** Advertised rent alone. */
 const WORTH_MAX_RENT_PLN = 2200;
@@ -27,10 +26,11 @@ export interface Classification {
 
 /**
  * Whether a description could still rescue this listing. Asked by sources that pay a
- * request per description. Nothing rescues an excluded district or a rent over both limits.
+ * request per description. District is deliberately not consulted: it is a dashboard
+ * filter now, and gating here would leave uncovered districts with no pin and no text
+ * the moment one is switched back on.
  */
 export function mightQualify(offer: NormalizedOffer): boolean {
-  if (isExcludedDistrict(offer.district)) return false;
   if (offer.pricePln === null) return false;
   return offer.pricePln <= Math.max(TOP_MAX_TOTAL_PLN, WORTH_MAX_RENT_PLN);
 }
@@ -76,12 +76,6 @@ export function classify(offer: NormalizedOffer): Classification {
     reasons.push(`The description states utilities of ${stated.utilitiesPln} PLN.`);
   } else if (stated.mentionsUtilities && !stated.allIn) {
     reasons.push('Utilities are mentioned without an amount and are not included above.');
-  }
-
-  // Absolute: a cheap flat in the wrong district is still the wrong district.
-  if (isExcludedDistrict(offer.district)) {
-    reasons.push(`${offer.district} is an excluded district.`);
-    return { tier: 'other', totalCostPln, costCertainty, reasons };
   }
 
   if (totalCostPln <= TOP_MAX_TOTAL_PLN) {
