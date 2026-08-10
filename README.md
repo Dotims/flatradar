@@ -94,7 +94,8 @@ pnpm check   # prettier + eslint + tsc + tests
 ## Layout
 
 ```
-api/                  serverless functions for the deployed dashboard
+server/               serverless functions for the deployed dashboard, bundled by
+                      scripts/build-vercel.mjs into .vercel/output
 apps/collector/       fetching, normalising, classifying, serving the API
   src/sources/        one folder per portal, each producing a NormalizedOffer
   src/domain/         the rules: districts, costs, tiers. No database, no network.

@@ -29,8 +29,15 @@ function run(command, args) {
   execFileSync(command, args, { cwd: root, stdio: 'inherit' });
 }
 
-/** Every .ts file under api/ is one function, at the path its name spells out. */
-function findFunctions(dir = join(root, 'api')) {
+/**
+ * The sources live in server/ rather than api/ because a top-level api/ directory is
+ * detected by Vercel's zero-config builders, which then package those files themselves
+ * and override what this script produced. The route each one serves is still /api/...
+ */
+const functionsDir = join(root, 'server');
+
+/** Every .ts file under server/ is one function, at the path its name spells out. */
+function findFunctions(dir = functionsDir) {
   const found = [];
 
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -43,8 +50,8 @@ function findFunctions(dir = join(root, 'api')) {
 }
 
 async function buildFunction(source) {
-  // api/offers/[id].ts becomes functions/api/offers/[id].func
-  const route = relative(root, source).replace(/\.ts$/, '');
+  // server/offers/[id].ts becomes functions/api/offers/[id].func
+  const route = join('api', relative(functionsDir, source).replace(/\.ts$/, ''));
   const funcDir = join(outputDir, 'functions', `${route}.func`);
   mkdirSync(funcDir, { recursive: true });
 
