@@ -1,6 +1,4 @@
-import { openDatabase } from '../db/client.ts';
 import { saveClassification } from '../db/classifications.ts';
-import { migrate } from '../db/migrate.ts';
 import { listOffersToClassify } from '../db/offers.ts';
 import type { Sql } from '../db/client.ts';
 import { classify, RULES_VERSION, type Tier } from '../domain/classify.ts';
@@ -24,14 +22,4 @@ export async function classifyOffers(sql: Sql): Promise<Record<Tier, number>> {
   );
 
   return counts;
-}
-
-if (process.argv[1] === import.meta.filename) {
-  const sql = openDatabase();
-  try {
-    await migrate(sql);
-    await classifyOffers(sql);
-  } finally {
-    await sql.end();
-  }
 }

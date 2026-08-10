@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { readDetail } from '../../apps/collector/src/api/handlers.ts';
-import { openDatabase } from '../../apps/collector/src/db/client.ts';
+import { openDatabase, type Sql } from '../../apps/collector/src/db/client.ts';
 
 /** The path segment is a string from the URL until it is proven to be a row id. */
 function readId(raw: VercelRequest['query'][string]): number | null {
@@ -31,8 +31,9 @@ export default async function handler(
     return;
   }
 
-  const sql = openDatabase();
+  let sql: Sql | null = null;
   try {
+    sql = openDatabase();
     response.setHeader('Cache-Control', 'no-store');
 
     const found = await readDetail(sql, id);
@@ -42,6 +43,6 @@ export default async function handler(
     console.error(error);
     response.status(500).json({ error: error instanceof Error ? error.message : 'Query failed.' });
   } finally {
-    await sql.end();
+    if (sql !== null) await sql.end();
   }
 }

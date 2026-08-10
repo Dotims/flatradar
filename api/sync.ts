@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { syncOtodom } from '../apps/collector/src/api/handlers.ts';
-import { openDatabase } from '../apps/collector/src/db/client.ts';
+import { openDatabase, type Sql } from '../apps/collector/src/db/client.ts';
 
 export default async function handler(
   request: VercelRequest,
@@ -11,13 +11,14 @@ export default async function handler(
     return;
   }
 
-  const sql = openDatabase();
+  let sql: Sql | null = null;
   try {
+    sql = openDatabase();
     response.status(200).json(await syncOtodom(sql));
   } catch (error) {
     console.error(error);
     response.status(500).json({ error: error instanceof Error ? error.message : 'Sync failed.' });
   } finally {
-    await sql.end();
+    if (sql !== null) await sql.end();
   }
 }

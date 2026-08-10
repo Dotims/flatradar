@@ -1,5 +1,4 @@
-import { openDatabase, type Sql } from '../db/client.ts';
-import { migrate } from '../db/migrate.ts';
+import type { Sql } from '../db/client.ts';
 import {
   ADVERTISER_MATCH,
   DESCRIPTION_MATCH,
@@ -106,14 +105,4 @@ export async function dedupeOffers(sql: Sql): Promise<{ pairs: number; hidden: n
   const result = { pairs: readNumber(row, 'pairs'), hidden: readNumber(row, 'hidden') };
   console.log(`Deduplication: ${result.pairs} matching pairs, ${result.hidden} listings hidden.`);
   return result;
-}
-
-if (process.argv[1] === import.meta.filename) {
-  const sql = openDatabase();
-  try {
-    await migrate(sql);
-    await dedupeOffers(sql);
-  } finally {
-    await sql.end();
-  }
 }

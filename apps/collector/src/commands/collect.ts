@@ -53,7 +53,3 @@ export async function collectAll(): Promise<void> {
     throw new Error(`Collection failed for: ${failures.join(', ')}.`);
   }
 }
-
-if (process.argv[1] === import.meta.filename) {
-  await collectAll();
-}

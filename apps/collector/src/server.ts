@@ -84,7 +84,3 @@ export async function startServer(port: number = PORT): Promise<ReturnType<typeo
 
   return server;
 }
-
-if (process.argv[1] === import.meta.filename) {
-  await startServer();
-}

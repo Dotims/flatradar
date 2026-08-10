@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { config } from '../config.ts';
-import { openDatabase, type Sql } from './client.ts';
+import type { Sql } from './client.ts';
 
 /** Applies .sql files once each, in name order. A second run is a no-op. */
 export async function migrate(
@@ -34,18 +34,4 @@ export async function migrate(
   }
 
   return pending;
-}
-
-if (process.argv[1] === import.meta.filename) {
-  const sql = openDatabase();
-  try {
-    const applied = await migrate(sql);
-    console.log(
-      applied.length === 0
-        ? 'Database up to date, no migrations to apply.'
-        : `Applied migrations: ${applied.join(', ')}`,
-    );
-  } finally {
-    await sql.end();
-  }
 }

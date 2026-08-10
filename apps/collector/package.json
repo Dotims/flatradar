@@ -6,12 +6,13 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "node --test",
-    "migrate": "node --env-file-if-exists=../../.env src/db/migrate.ts",
+    "migrate": "node --env-file-if-exists=../../.env src/cli.ts migrate",
     "status": "node --env-file-if-exists=../../.env src/index.ts",
-    "collect": "node --env-file-if-exists=../../.env src/commands/collect.ts",
-    "collect:olx": "node --env-file-if-exists=../../.env src/commands/collect-olx.ts",
-    "collect:otodom": "node --env-file-if-exists=../../.env src/commands/collect-otodom.ts",
-    "classify": "node --env-file-if-exists=../../.env src/commands/classify.ts",
-    "serve": "node --env-file-if-exists=../../.env src/server.ts"
+    "collect": "node --env-file-if-exists=../../.env src/cli.ts collect",
+    "collect:olx": "node --env-file-if-exists=../../.env src/cli.ts collect:olx",
+    "collect:otodom": "node --env-file-if-exists=../../.env src/cli.ts collect:otodom",
+    "classify": "node --env-file-if-exists=../../.env src/cli.ts classify",
+    "dedupe": "node --env-file-if-exists=../../.env src/cli.ts dedupe",
+    "serve": "node --env-file-if-exists=../../.env src/cli.ts serve"
   }
 }

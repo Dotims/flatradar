@@ -1,5 +1,4 @@
-import { openDatabase, type Sql } from '../db/client.ts';
-import { migrate } from '../db/migrate.ts';
+import type { Sql } from '../db/client.ts';
 import { upsertOffer } from '../db/offers.ts';
 import { finishRun, startRun } from '../db/runs.ts';
 import { fetchOlxOffers } from '../sources/olx/client.ts';
@@ -33,15 +32,5 @@ export async function collectOlx(sql: Sql, pages = 2): Promise<void> {
       error: error instanceof Error ? error.message : String(error),
     });
     throw error;
-  }
-}
-
-if (process.argv[1] === import.meta.filename) {
-  const sql = openDatabase();
-  try {
-    await migrate(sql);
-    await collectOlx(sql, Number(process.argv[2] ?? 2) || 2);
-  } finally {
-    await sql.end();
   }
 }

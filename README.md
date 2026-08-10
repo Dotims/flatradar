@@ -99,7 +99,8 @@ apps/collector/       fetching, normalising, classifying, serving the API
   src/sources/        one folder per portal, each producing a NormalizedOffer
   src/domain/         the rules: districts, costs, tiers. No database, no network.
   src/db/             schema, migrations and checked row readers
-  src/commands/       what the pnpm scripts run
+  src/commands/       one exported function per job, side effects only when called
+  src/cli.ts          the only entry point: `node src/cli.ts <command>`
 apps/web/             the dashboard
 ```
 

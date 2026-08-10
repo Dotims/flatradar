@@ -10,7 +10,7 @@ WorkingDirectory=%h/Desktop/projects/flatradar
 Environment=FLATRADAR_SOURCES=olx
 EnvironmentFile=%h/Desktop/projects/flatradar/.env
 # node directly, not pnpm: a unit does not inherit the shell PATH.
-ExecStart=/usr/bin/node apps/collector/src/commands/collect.ts
+ExecStart=/usr/bin/node apps/collector/src/cli.ts collect
 TimeoutStartSec=300
 
 [Install]

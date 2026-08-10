@@ -1,5 +1,4 @@
-import { openDatabase, type Sql } from '../db/client.ts';
-import { migrate } from '../db/migrate.ts';
+import type { Sql } from '../db/client.ts';
 import { listDetailedSourceIds, upsertOffer } from '../db/offers.ts';
 import { finishRun, startRun } from '../db/runs.ts';
 import { mightQualify } from '../domain/classify.ts';
@@ -98,18 +97,5 @@ export async function collectOtodom(
       error: error instanceof Error ? error.message : String(error),
     });
     throw error;
-  }
-}
-
-if (process.argv[1] === import.meta.filename) {
-  const sql = openDatabase();
-  try {
-    await migrate(sql);
-    await collectOtodom(sql, {
-      pages: Number(process.argv[2] ?? 2) || 2,
-      maxDetails: Number(process.argv[3] ?? MAX_DETAILS_PER_RUN) || MAX_DETAILS_PER_RUN,
-    });
-  } finally {
-    await sql.end();
   }
 }

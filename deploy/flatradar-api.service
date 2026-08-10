@@ -5,7 +5,7 @@ After=default.target
 [Service]
 Type=simple
 WorkingDirectory=%h/Desktop/projects/flatradar
-ExecStart=/usr/bin/node apps/collector/src/server.ts
+ExecStart=/usr/bin/node apps/collector/src/cli.ts serve
 Restart=on-failure
 RestartSec=5
 
