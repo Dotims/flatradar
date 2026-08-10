@@ -4,7 +4,7 @@ import tseslint from 'typescript-eslint';
 export default tseslint.config(
   // dist holds Vite output: minified third-party code that no rule here has anything
   // useful to say about.
-  { ignores: ['**/node_modules/**', '**/dist/**', 'data/**'] },
+  { ignores: ['**/node_modules/**', '**/dist/**', 'data/**', '.vercel/**'] },
   js.configs.recommended,
   tseslint.configs.recommended,
   {
@@ -22,7 +22,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ['apps/collector/**/*.ts'],
+    files: ['apps/collector/**/*.ts', 'scripts/**/*.mjs'],
     languageOptions: {
       globals: { process: 'readonly', console: 'readonly', fetch: 'readonly', Buffer: 'readonly' },
     },
