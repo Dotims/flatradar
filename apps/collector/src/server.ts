@@ -3,10 +3,8 @@ import {
   assertIngestAllowed,
   ingestOlx,
   readDetail,
-  readMark,
   readOffers,
   syncOtodom,
-  writeMark,
 } from './api/handlers.ts';
 import { openDatabase } from './db/client.ts';
 import { migrate } from './db/migrate.ts';
@@ -45,29 +43,13 @@ export async function startServer(port: number = PORT): Promise<ReturnType<typeo
           sendJson(response, 200, await readOffers(sql));
           return;
         }
-        // Same path in both servers: Vercel routes one file per path, so the mark shares
-        // the listing's own endpoint rather than needing a segment of its own.
+        // Read-only, like the whole listing surface: the only writes this API accepts are
+        // collection runs, and those carry the ingest token.
         const one = /^\/api\/offers\/(\d+)$/.exec(url.pathname);
         if (one?.[1] !== undefined && request.method === 'GET') {
           const found = await readDetail(sql, Number(one[1]));
           if (found === null) sendJson(response, 404, { error: 'Nie ma takiej oferty.' });
           else sendJson(response, 200, found);
-          return;
-        }
-        if (one?.[1] !== undefined && request.method === 'POST') {
-          // A body we do not understand is the caller's mistake, not ours.
-          let mark;
-          try {
-            mark = readMark(await readBody(request));
-          } catch (error) {
-            sendJson(response, 400, {
-              error: error instanceof Error ? error.message : 'Bad request.',
-            });
-            return;
-          }
-
-          await writeMark(sql, Number(one[1]), mark);
-          sendJson(response, 200, { ok: true });
           return;
         }
         if (request.method === 'GET' && url.pathname === '/api/health') {

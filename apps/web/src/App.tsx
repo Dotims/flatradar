@@ -15,8 +15,9 @@ import {
   type Filters,
 } from './filters.ts';
 import { minutesSince, since } from './format.ts';
+import { useMarks, withMarks } from './marks.ts';
 import { useTheme } from './theme.ts';
-import type { Mark, Offer, SortKey, SourceStatus, Tier } from './types.ts';
+import type { Offer, SortKey, SourceStatus, Tier } from './types.ts';
 
 /*
   THESIS: a flat search is a pipeline with a verdict at the end, so the surface opens on
@@ -46,7 +47,7 @@ const FAILURES_BEFORE_DISCONNECTED = 2;
 type SyncNote = { kind: 'ok' | 'error'; text: string };
 
 export function App() {
-  const [offers, setOffers] = useState<Offer[]>([]);
+  const [collected, setCollected] = useState<Offer[]>([]);
   const [sources, setSources] = useState<SourceStatus[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [disconnected, setDisconnected] = useState(false);
@@ -59,33 +60,21 @@ export function App() {
   const [mapOpen, setMapOpen] = useState(false);
   const [sort, setSort] = useState<SortKey>('newest');
   const [selectedId, setSelectedId] = useState<number | null>(null);
-  const [markError, setMarkError] = useState<string | null>(null);
   const { theme, toggle: toggleTheme } = useTheme();
 
   /**
-   * Applied locally first. The write is one row and the list is thousands, so refetching
-   * to learn what we already know would make marking a flat feel like a page load.
+   * Kept in this browser rather than the database, because the page is shared. One
+   * visitor's rejection must not take a flat off everybody else's list.
    */
-  const mark = useCallback((id: number, next: Mark | null) => {
-    setOffers((current) =>
-      current.map((offer) => (offer.id === id ? { ...offer, mark: next } : offer)),
-    );
-
-    void fetch(`/api/offers/${id}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mark: next }),
-    }).then((response) => {
-      if (!response.ok) setMarkError('Nie udało się zapisać. Odśwież stronę.');
-    });
-  }, []);
+  const { marks, setMark } = useMarks();
+  const offers = useMemo(() => withMarks(collected, marks), [collected, marks]);
 
   const load = useCallback(async (signal?: AbortSignal) => {
     const response = await fetch('/api/offers', signal ? { signal } : {});
     if (!response.ok) throw new Error(`API odpowiedziało ${response.status}`);
 
     const body = (await response.json()) as { offers: Offer[]; sources?: SourceStatus[] };
-    setOffers(body.offers);
+    setCollected(body.offers);
     setSources(body.sources ?? []);
     setError(null);
     setDisconnected(false);
@@ -265,11 +254,6 @@ export function App() {
         </div>
 
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-          {markError !== null && (
-            <span role="status" className="tag text-danger normal-case">
-              {markError}
-            </span>
-          )}
           {syncNote !== null && (
             <span
               role="status"
@@ -372,7 +356,7 @@ export function App() {
                     selected={offer.id === selectedId}
                     onHover={setActiveId}
                     onSelect={() => setSelectedId(offer.id)}
-                    onMark={(next) => mark(offer.id, next)}
+                    onMark={(next) => setMark(offer.id, next)}
                   />
                 </li>
               ))}
@@ -389,7 +373,7 @@ export function App() {
                 selectedId={selectedId}
                 theme={theme}
                 onHover={setActiveId}
-                onMark={mark}
+                onMark={setMark}
               />
             </div>
             <UnlocatedPanel
@@ -422,7 +406,7 @@ export function App() {
                 selectedId={selectedId}
                 theme={theme}
                 onHover={setActiveId}
-                onMark={mark}
+                onMark={setMark}
               />
             </div>
             <UnlocatedPanel
@@ -449,7 +433,7 @@ export function App() {
             <OfferDetail
               offer={selected}
               onClose={() => setSelectedId(null)}
-              onMark={(next) => mark(selected.id, next)}
+              onMark={(next) => setMark(selected.id, next)}
             />
           </div>
         </>
