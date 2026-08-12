@@ -348,7 +348,9 @@ export function OfferMap({
   );
 
   return (
-    <div className="rule h-full overflow-hidden rounded-xl">
+    // No border or radius of its own: the map fills a column now, and the column draws
+    // the one line between it and the listings.
+    <div className="h-full overflow-hidden">
       <MapContainer
         center={KRAKOW}
         zoom={12}

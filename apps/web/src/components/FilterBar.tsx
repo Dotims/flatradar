@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import {
   DEFAULT_FILTERS,
   DEFAULT_HIDDEN_DISTRICTS,
@@ -32,7 +33,7 @@ function Bound({
       placeholder={placeholder}
       aria-label={ariaLabel}
       onChange={(event) => onChange(toBound(event.target.value))}
-      className="num w-[4.5rem] rounded-lg border border-line bg-graphite-900 px-2 py-1 text-sm text-ink transition-colors placeholder:text-ink-faint hover:border-line-strong focus:border-signal-400 focus:outline-none"
+      className="num w-[4.25rem] rounded-lg border border-line bg-graphite-900 px-2 py-1 text-sm text-ink transition-colors placeholder:text-ink-faint hover:border-line-strong focus:border-signal-400 focus:outline-none"
     />
   );
 }
@@ -53,7 +54,7 @@ function Range({
   onTo: (value: number | null) => void;
 }) {
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="flex flex-col gap-1">
       <span className="tag">
         {label} <span className="text-ink-mute">{suffix}</span>
       </span>
@@ -99,11 +100,16 @@ function Pill({
 }
 
 /**
- * Districts, spelled out. This was a <details> summary reading "10 ukrytych" and the
- * owner could not find a way to edit it at all, so the chips are on the page, every
- * district is one click, and the two bulk actions say what they do.
+ * Districts, spelled out, but floating rather than in the bar. Nineteen chips wrap to two
+ * rows and took 130px off the top of the page permanently, which is height the map needs
+ * more than the filters do. A panel that opens in place would take it back on every use;
+ * this one is drawn over the page instead, so the layout underneath never moves.
+ *
+ * They are still one click from the bar and every district is still its own chip: an
+ * earlier version hid them behind a summary reading "10 ukrytych" and the owner could not
+ * find a way to edit it at all.
  */
-function Districts({
+function DistrictPicker({
   districts,
   hidden,
   onChange,
@@ -112,76 +118,118 @@ function Districts({
   hidden: string[];
   onChange: (next: string[]) => void;
 }) {
+  const [open, setOpen] = useState(false);
+  const holder = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+
+    // Pointerdown rather than click, so the panel is already gone by the time a press
+    // elsewhere on the page turns into that element's own click.
+    function onPointerDown(event: PointerEvent) {
+      const target = event.target;
+      if (target instanceof Node && holder.current?.contains(target) !== true) setOpen(false);
+    }
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') setOpen(false);
+    }
+
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [open]);
+
   if (districts.length === 0) return null;
   const shown = districts.length - hidden.filter((name) => districts.includes(name)).length;
+  const narrowed = shown < districts.length;
 
   return (
-    <div className="mt-3.5 border-t border-line pt-3.5">
-      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-2">
-        <span className="tag">
-          dzielnice
-          <span className="ml-1.5 text-ink-mute normal-case">
-            ({shown} z {districts.length})
-          </span>
+    <div ref={holder} className="relative flex flex-col gap-1">
+      <span className="tag">dzielnice</span>
+      <button
+        type="button"
+        onClick={() => setOpen((current) => !current)}
+        aria-expanded={open}
+        className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 font-mono text-[0.6875rem] tracking-[0.06em] uppercase transition-colors duration-150 ${
+          narrowed
+            ? 'border-signal-400/60 bg-signal-500/10 text-signal-300'
+            : 'border-line text-ink-faint hover:border-line-strong hover:text-ink-dim'
+        }`}
+      >
+        {shown} z {districts.length}
+        <span aria-hidden="true" className={`text-[0.5rem] ${open ? 'rotate-180' : ''}`}>
+          ▼
         </span>
-        <button
-          type="button"
-          onClick={() => onChange([])}
-          className="tag normal-case underline decoration-line underline-offset-2 transition-colors hover:text-ink-dim"
-        >
-          zaznacz wszystkie
-        </button>
-        <button
-          type="button"
-          onClick={() => onChange([...districts])}
-          className="tag normal-case underline decoration-line underline-offset-2 transition-colors hover:text-ink-dim"
-        >
-          odznacz wszystkie
-        </button>
-        <button
-          type="button"
-          onClick={() => onChange([...DEFAULT_HIDDEN_DISTRICTS])}
-          className="tag normal-case underline decoration-line underline-offset-2 transition-colors hover:text-ink-dim"
-        >
-          moje domyślne
-        </button>
-      </div>
+      </button>
 
-      <div className="mt-2.5 flex flex-wrap gap-1.5">
-        {districts.map((district) => {
-          const on = !hidden.includes(district);
-          return (
+      {open && (
+        <div className="rule absolute top-full left-0 z-50 mt-2 w-[36rem] max-w-[calc(100vw-3rem)] rounded-xl bg-graphite-950 p-4 shadow-2xl shadow-black/40">
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-2">
             <button
-              key={district}
               type="button"
-              aria-pressed={on}
-              onClick={() => onChange(toggle(hidden, district))}
-              className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-[0.6875rem] tracking-[0.04em] transition-colors duration-150 ${
-                on
-                  ? 'border-signal-400/50 bg-signal-500/10 text-signal-300'
-                  : 'border-line text-ink-mute hover:border-line-strong hover:text-ink-dim'
-              }`}
+              onClick={() => onChange([])}
+              className="tag normal-case underline decoration-line underline-offset-2 transition-colors hover:text-ink-dim"
             >
-              <span
-                aria-hidden="true"
-                className={`grid size-3 place-items-center rounded-[3px] border text-[8px] leading-none ${
-                  on ? 'border-signal-400/70' : 'border-line-strong'
-                }`}
-              >
-                {on ? '✓' : ''}
-              </span>
-              {district === NO_DISTRICT ? 'bez dzielnicy' : district}
+              zaznacz wszystkie
             </button>
-          );
-        })}
-      </div>
+            <button
+              type="button"
+              onClick={() => onChange([...districts])}
+              className="tag normal-case underline decoration-line underline-offset-2 transition-colors hover:text-ink-dim"
+            >
+              odznacz wszystkie
+            </button>
+            <button
+              type="button"
+              onClick={() => onChange([...DEFAULT_HIDDEN_DISTRICTS])}
+              className="tag normal-case underline decoration-line underline-offset-2 transition-colors hover:text-ink-dim"
+            >
+              moje domyślne
+            </button>
+          </div>
+
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {districts.map((district) => {
+              const on = !hidden.includes(district);
+              return (
+                <button
+                  key={district}
+                  type="button"
+                  aria-pressed={on}
+                  onClick={() => onChange(toggle(hidden, district))}
+                  className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-[0.6875rem] tracking-[0.04em] transition-colors duration-150 ${
+                    on
+                      ? 'border-signal-400/50 bg-signal-500/10 text-signal-300'
+                      : 'border-line text-ink-mute hover:border-line-strong hover:text-ink-dim'
+                  }`}
+                >
+                  <span
+                    aria-hidden="true"
+                    className={`grid size-3 place-items-center rounded-[3px] border text-[8px] leading-none ${
+                      on ? 'border-signal-400/70' : 'border-line-strong'
+                    }`}
+                  >
+                    {on ? '✓' : ''}
+                  </span>
+                  {district === NO_DISTRICT ? 'bez dzielnicy' : district}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 /**
- * Across the top rather than down the side. As a right-hand rail it took a column the
- * map needed, and the map is the half of this page that cannot be read in a narrow strip.
+ * One row across the top, the way the portals do it. As a right-hand rail it took a
+ * column the map needed, and as a two-storey block it took the height.
  */
 export function FilterBar({
   filters,
@@ -199,69 +247,67 @@ export function FilterBar({
   const set = (patch: Partial<Filters>) => onChange({ ...filters, ...patch });
 
   return (
-    <section aria-label="Filtry" className="rule rounded-xl bg-graphite-950 px-4 py-3.5">
-      <div className="flex flex-wrap items-end gap-x-6 gap-y-4">
-        <Range
-          label="koszt"
-          suffix="zł"
-          from={filters.minCostPln}
-          to={filters.maxCostPln}
-          onFrom={(minCostPln) => set({ minCostPln })}
-          onTo={(maxCostPln) => set({ maxCostPln })}
-        />
-        <Range
-          label="metraż"
-          suffix="m²"
-          from={filters.minAreaM2}
-          to={filters.maxAreaM2}
-          onFrom={(minAreaM2) => set({ minAreaM2 })}
-          onTo={(maxAreaM2) => set({ maxAreaM2 })}
-        />
-        <Range
-          label="pokoje"
-          suffix=""
-          from={filters.minRooms}
-          to={filters.maxRooms}
-          onFrom={(minRooms) => set({ minRooms })}
-          onTo={(maxRooms) => set({ maxRooms })}
-        />
+    <section aria-label="Filtry" className="flex flex-wrap items-end gap-x-5 gap-y-3">
+      <Range
+        label="koszt"
+        suffix="zł"
+        from={filters.minCostPln}
+        to={filters.maxCostPln}
+        onFrom={(minCostPln) => set({ minCostPln })}
+        onTo={(maxCostPln) => set({ maxCostPln })}
+      />
+      <Range
+        label="metraż"
+        suffix="m²"
+        from={filters.minAreaM2}
+        to={filters.maxAreaM2}
+        onFrom={(minAreaM2) => set({ minAreaM2 })}
+        onTo={(maxAreaM2) => set({ maxAreaM2 })}
+      />
+      <Range
+        label="pokoje"
+        suffix=""
+        from={filters.minRooms}
+        to={filters.maxRooms}
+        onFrom={(minRooms) => set({ minRooms })}
+        onTo={(maxRooms) => set({ maxRooms })}
+      />
 
-        <div className="flex flex-wrap items-center gap-2">
-          <Pill on={filters.privateOnly} onClick={() => set({ privateOnly: !filters.privateOnly })}>
-            tylko prywatne
-          </Pill>
-          <Pill
-            on={filters.favouritesOnly}
-            title="Pokaż wyłącznie oferty dodane do ulubionych"
-            onClick={() => set({ favouritesOnly: !filters.favouritesOnly })}
-          >
-            ulubione{favourites > 0 ? ` · ${favourites}` : ''}
-          </Pill>
-          {rejected > 0 && (
-            <Pill
-              on={filters.showRejected}
-              title="Pokaż oferty, które wykluczyłeś"
-              onClick={() => set({ showRejected: !filters.showRejected })}
-            >
-              wykluczone · {rejected}
-            </Pill>
-          )}
-        </div>
-
-        <button
-          type="button"
-          onClick={() => onChange(DEFAULT_FILTERS)}
-          className="tag ml-auto normal-case transition-colors hover:text-ink-dim"
-        >
-          przywróć domyślne
-        </button>
-      </div>
-
-      <Districts
+      <DistrictPicker
         districts={districts}
         hidden={filters.hiddenDistricts}
         onChange={(hiddenDistricts) => set({ hiddenDistricts })}
       />
+
+      <div className="flex flex-wrap items-center gap-2">
+        <Pill on={filters.privateOnly} onClick={() => set({ privateOnly: !filters.privateOnly })}>
+          tylko prywatne
+        </Pill>
+        <Pill
+          on={filters.favouritesOnly}
+          title="Pokaż wyłącznie oferty dodane do ulubionych"
+          onClick={() => set({ favouritesOnly: !filters.favouritesOnly })}
+        >
+          ulubione{favourites > 0 ? ` · ${favourites}` : ''}
+        </Pill>
+        {rejected > 0 && (
+          <Pill
+            on={filters.showRejected}
+            title="Pokaż oferty, które wykluczyłeś"
+            onClick={() => set({ showRejected: !filters.showRejected })}
+          >
+            wykluczone · {rejected}
+          </Pill>
+        )}
+      </div>
+
+      <button
+        type="button"
+        onClick={() => onChange(DEFAULT_FILTERS)}
+        className="tag ml-auto normal-case transition-colors hover:text-ink-dim"
+      >
+        przywróć domyślne
+      </button>
     </section>
   );
 }
