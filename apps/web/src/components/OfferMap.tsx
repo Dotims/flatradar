@@ -1,5 +1,5 @@
-import { divIcon } from 'leaflet';
-import { useEffect, useMemo, useState } from 'react';
+import { divIcon, type Marker as LeafletMarker } from 'leaflet';
+import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet';
 import { area, pln, rooms, since } from '../format.ts';
 import type { Theme } from '../theme.ts';
@@ -54,18 +54,26 @@ function priceMarker(offer: Offer, active: boolean, selected: boolean) {
   });
 }
 
-/** A quiet stand-in for a listing whose price label had no room to be drawn. */
+/**
+ * A stand-in for a listing whose price label had no room to be drawn. At 10px with a
+ * hairline border these read as specks of tile noise rather than as listings, and they
+ * are the majority of what the map draws once the centre fills up. 16px with a 2px
+ * border and a ring of ground colour behind it survives both tile sets.
+ */
+const DOT = 16;
+
 function dotMarker(offer: Offer, active: boolean, selected: boolean) {
   const lit = active || selected || offer.tier === 'top';
 
   return divIcon({
     className: '',
-    iconSize: [10, 10],
-    iconAnchor: [5, 5],
+    iconSize: [DOT, DOT],
+    iconAnchor: [DOT / 2, DOT / 2],
     html: `<span style="
-      display:block;width:10px;height:10px;border-radius:9999px;
-      border:1px solid ${lit ? 'var(--color-signal-400)' : 'var(--color-line-strong)'};
-      background:${lit ? 'color-mix(in srgb, var(--color-signal-500) 45%, transparent)' : 'var(--color-graphite-800)'};
+      display:block;width:${DOT}px;height:${DOT}px;border-radius:9999px;
+      border:2px solid ${lit ? 'var(--color-signal-400)' : 'var(--color-line-strong)'};
+      background:${lit ? 'color-mix(in srgb, var(--color-signal-500) 55%, transparent)' : 'var(--color-graphite-800)'};
+      box-shadow:0 0 0 1.5px color-mix(in srgb, var(--color-void) 65%, transparent);
     "></span>`,
   });
 }
@@ -196,6 +204,54 @@ function Recentre({ points, fingerprint }: { points: [number, number][]; fingerp
   return null;
 }
 
+/** Close enough to read the street. Only used when the view is currently wider. */
+const CLOSE_ZOOM = 16;
+const FLIGHT_SECONDS = 0.9;
+
+/**
+ * A click in the list is answered by the map itself, rather than by a panel drawn over
+ * it: the view travels to the pin and opens its preview. Its own component because
+ * `useMap` only works underneath `MapContainer`, and `OfferMap` sits above it.
+ *
+ * The popup waits for `moveend` instead of opening with the flight. Leaflet pans a popup
+ * into view as it opens, which during a flight is a second animation fighting the first,
+ * and the map arrived somewhere neither of them had chosen.
+ */
+function FlyToSelected({
+  located,
+  selectedId,
+  markers,
+}: {
+  located: Offer[];
+  selectedId: number | null;
+  markers: RefObject<Map<number, LeafletMarker>>;
+}) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (selectedId === null) return;
+
+    const offer = located.find((candidate) => candidate.id === selectedId);
+    if (offer === undefined || offer.lat === null || offer.lng === null) return;
+
+    // Never zooms out. Picking a listing while reading one street should not throw the
+    // whole city back on screen, so this only ever closes in.
+    const target = Math.max(map.getZoom(), CLOSE_ZOOM);
+
+    const reveal = () => markers.current.get(selectedId)?.openPopup();
+    map.once('moveend', reveal);
+    map.flyTo([offer.lat, offer.lng], target, { duration: FLIGHT_SECONDS });
+
+    return () => {
+      // The listener is `once`, but a selection changed mid-flight would otherwise open
+      // the pin we were already leaving.
+      map.off('moveend', reveal);
+    };
+  }, [selectedId, located, map, markers]);
+
+  return null;
+}
+
 /**
  * The preview a pin opens. Everything except the photograph is already in hand, so the
  * request is made only once this is on screen, and only for the one listing.
@@ -267,12 +323,14 @@ function Pins({
   located,
   activeId,
   selectedId,
+  markers,
   onHover,
   onMark,
 }: {
   located: Offer[];
   activeId: number | null;
   selectedId: number | null;
+  markers: RefObject<Map<number, LeafletMarker>>;
   onHover: (id: number | null) => void;
   onMark: (id: number, next: Mark | null) => void;
 }) {
@@ -291,12 +349,19 @@ function Pins({
           <Marker
             key={offer.id}
             position={[offer.lat as number, offer.lng as number]}
+            // The registry is what lets a card open this pin's popup once the flight
+            // lands. Block body on purpose: React 19 treats a returned value as the
+            // cleanup function, and Map.set returns the map.
+            ref={(instance) => {
+              if (instance === null) markers.current.delete(offer.id);
+              else markers.current.set(offer.id, instance);
+            }}
             icon={
               showPrice ? priceMarker(offer, active, selected) : dotMarker(offer, active, selected)
             }
             // Labels still touch at the edges; the one being pointed at comes to the front.
             zIndexOffset={selected ? 2000 : active ? 1000 : showPrice ? 500 : 0}
-            title={`${offer.title}${isExact(offer) ? '' : ' — przybliżona okolica'}`}
+            title={`${offer.title}${isExact(offer) ? '' : ' - przybliżona okolica'}`}
             // No click handler: the pin opens its own preview and nothing else. Wiring
             // selection here as well opened the side panel on top of the popup.
             eventHandlers={{
@@ -347,6 +412,9 @@ export function OfferMap({
     [located],
   );
 
+  /** Live Leaflet markers by offer id, so a selection can open the one it flew to. */
+  const markers = useRef(new Map<number, LeafletMarker>());
+
   return (
     // No border or radius of its own: the map fills a column now, and the column draws
     // the one line between it and the listings.
@@ -355,6 +423,15 @@ export function OfferMap({
         center={KRAKOW}
         zoom={12}
         scrollWheelZoom
+        /*
+          Leaflet's default step is a whole zoom level, which doubles the scale in one
+          press and overshoots the district you were reading. Halving both the snap and
+          the step keeps every rung on offer, and the wheel needs more than twice the
+          default 60px per level so a single notch is a nudge rather than a jump.
+        */
+        zoomSnap={0.5}
+        zoomDelta={0.5}
+        wheelPxPerZoomLevel={150}
         style={{ height: '100%', width: '100%' }}
         attributionControl
       >
@@ -370,9 +447,12 @@ export function OfferMap({
           located={located}
           activeId={activeId}
           selectedId={selectedId}
+          markers={markers}
           onHover={onHover}
           onMark={onMark}
         />
+        {/* After Pins, so the markers it flies to are registered by the time it runs. */}
+        <FlyToSelected located={located} selectedId={selectedId} markers={markers} />
       </MapContainer>
     </div>
   );

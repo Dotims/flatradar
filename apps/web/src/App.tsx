@@ -43,6 +43,13 @@ const REFRESH_MS = 300_000;
 /** A background poll may fail quietly once; two in a row means the API is gone. */
 const FAILURES_BEFORE_DISCONNECTED = 2;
 
+/**
+ * Tailwind's `lg`, restated here because this is a behavioural decision rather than a
+ * stylistic one: below it the map is not on screen to be flown to, so it has to be
+ * opened before a card can hand it anything.
+ */
+const SIDE_BY_SIDE = '(min-width: 64rem)';
+
 type SyncNote = { kind: 'ok' | 'error'; text: string };
 
 /**
@@ -180,6 +187,24 @@ export function App() {
     () => visible.find((offer) => offer.id === selectedId) ?? null,
     [visible, selectedId],
   );
+
+  /**
+   * Picking a listing points the map at it instead of opening a panel over the page. The
+   * map already carries the photograph, the price and the marks, so the panel was a
+   * second copy of the card covering the one view that could say something new.
+   */
+  function selectOffer(offer: Offer) {
+    setSelectedId(offer.id);
+    if (offer.lat !== null && !window.matchMedia(SIDE_BY_SIDE).matches) setMapOpen(true);
+  }
+
+  /**
+   * The panel survives for the listings the map cannot answer for. Neither portal gives
+   * coordinates for every advert, and 1911 of 4284 currently have none, so routing every
+   * click to the map would leave close to half the list doing nothing when clicked.
+   */
+  const detail =
+    selected !== null && (selected.lat === null || selected.lng === null) ? selected : null;
 
   const located = useMemo(() => visible.filter((offer) => offer.lat !== null).length, [visible]);
 
@@ -388,7 +413,7 @@ export function App() {
                       active={offer.id === activeId}
                       selected={offer.id === selectedId}
                       onHover={setActiveId}
-                      onSelect={() => setSelectedId(offer.id)}
+                      onSelect={() => selectOffer(offer)}
                       onMark={(next) => setMark(offer.id, next)}
                     />
                   </li>
@@ -435,9 +460,9 @@ export function App() {
         </div>
       )}
 
-      {/* Opened from a listing card. An overlay rather than a third column: the map was
-          shrunk by exactly this kind of neighbour. */}
-      {selected !== null && (
+      {/* The fallback for a listing with no pin, not the usual way in. An overlay rather
+          than a third column: the map was shrunk by exactly this kind of neighbour. */}
+      {detail !== null && (
         <>
           <button
             type="button"
@@ -447,9 +472,9 @@ export function App() {
           />
           <div className="fixed inset-y-0 right-0 z-50 w-full max-w-md p-3 sm:p-4">
             <OfferDetail
-              offer={selected}
+              offer={detail}
               onClose={() => setSelectedId(null)}
-              onMark={(next) => setMark(selected.id, next)}
+              onMark={(next) => setMark(detail.id, next)}
             />
           </div>
         </>
