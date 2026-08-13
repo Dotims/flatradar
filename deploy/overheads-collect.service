@@ -9,6 +9,11 @@ WorkingDirectory=%h/Desktop/projects/overheads
 # Only OLX: Otodom is collected in the cloud, which OLX refuses from datacenter IPs.
 Environment=OVERHEADS_SOURCES=olx
 EnvironmentFile=%h/Desktop/projects/overheads/.env
+# The unit runs whatever happens to be checked out here, so the journal records which
+# revision that was. Without it, a tree left on an older branch collects quietly and
+# wrongly, and the dashboard goes on looking healthy while it does. Leading dash: this is
+# a note to the log, and it must never be the reason a round did not happen.
+ExecStartPre=-/usr/bin/git -C %h/Desktop/projects/overheads log -1 "--format=running %%h%%d"
 # node directly, not pnpm: a unit does not inherit the shell PATH.
 ExecStart=/usr/bin/node apps/collector/src/cli.ts collect
 TimeoutStartSec=300
