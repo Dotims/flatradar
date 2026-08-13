@@ -206,14 +206,14 @@ function DistrictPicker({
                   type="button"
                   aria-pressed={on}
                   onClick={() => onChange(toggle(hidden, district))}
-                  // No tick box. The chip already says which state it is in twice over, by
-                  // colour and by the line through an excluded name, and a 12px square
-                  // holding an 8px glyph reads as grit at this size rather than as a
-                  // control. aria-pressed above carries the state where colour cannot.
+                  // No tick box and no strike: lighting the chip is enough to read at a
+                  // glance, and a 12px square holding an 8px glyph read as grit rather
+                  // than as a control. aria-pressed above carries the state for anything
+                  // that cannot see the colour.
                   className={`rounded-full border px-2.5 py-1 font-mono text-[0.6875rem] tracking-[0.04em] transition-colors duration-150 ${
                     on
                       ? 'border-signal-400/50 bg-signal-500/10 text-signal-300'
-                      : 'border-line text-ink-mute line-through decoration-line-strong hover:border-line-strong hover:text-ink-dim'
+                      : 'border-line text-ink-mute hover:border-line-strong hover:text-ink-dim'
                   }`}
                 >
                   {district === NO_DISTRICT ? 'bez dzielnicy' : district}
