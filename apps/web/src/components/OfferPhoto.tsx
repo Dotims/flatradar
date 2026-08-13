@@ -13,6 +13,13 @@ const DRAG_LIMIT = 110;
 const DRAG_STARTS = 6;
 
 /**
+ * How long the pointer has to rest on a picture before the rest of the gallery is
+ * fetched. Without the wait, running the mouse across a grid asks for a gallery per tile
+ * it crosses; with it, the neighbour is usually already there when a drag begins.
+ */
+const HOVER_INTENT_MS = 180;
+
+/**
  * Two shapes, because the two views ask different questions of a photograph. A tile is
  * mostly picture, with the numbers underneath. A row is a line in a list that happens to
  * carry one, so the picture takes a strip down the left and the card keeps the height it
@@ -42,9 +49,23 @@ export function OfferPhoto({ offer, layout }: { offer: Offer; layout: PhotoLayou
 
   /** How far the picture is currently pulled from its resting place, in pixels. */
   const [pull, setPull] = useState(0);
+  /**
+   * Whether the strip animates back to centre. A drag that fell short springs back, and
+   * seeing it do so is the point. A drag that succeeded cuts instead: the new photograph
+   * is already in the middle by then, so animating the pull away would slide it in the
+   * opposite direction to the one the pointer just went.
+   */
+  const [glide, setGlide] = useState(false);
   const drag = useRef<{ from: number; moved: boolean } | null>(null);
   /** Set when a drag ends, so the click it produces does not also select the listing. */
   const swallowClick = useRef(false);
+  const hoverIntent = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (hoverIntent.current !== null) clearTimeout(hoverIntent.current);
+    };
+  }, []);
 
   // A card can be reused for another listing as the list is filtered and sorted.
   useEffect(() => {
@@ -101,6 +122,22 @@ export function OfferPhoto({ offer, layout }: { offer: Offer; layout: PhotoLayou
     also happens on an ordinary click of the card, and that would put a request behind
     every card anyone clicks.
   */
+  /** Fetches the neighbours while the pointer is still deciding, not once it has moved. */
+  function onPointerEnter() {
+    if (!hasMore || hoverIntent.current !== null) return;
+
+    hoverIntent.current = window.setTimeout(() => {
+      hoverIntent.current = null;
+      void loadRest();
+    }, HOVER_INTENT_MS);
+  }
+
+  function onPointerLeave() {
+    if (hoverIntent.current === null) return;
+    clearTimeout(hoverIntent.current);
+    hoverIntent.current = null;
+  }
+
   function onPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
     if (total < 2) return;
     // Capturing the pointer retargets everything that follows, including the click, so a
@@ -118,6 +155,7 @@ export function OfferPhoto({ offer, layout }: { offer: Offer; layout: PhotoLayou
     const travelled = event.clientX - started.from;
     if (!started.moved && Math.abs(travelled) > DRAG_STARTS) {
       started.moved = true;
+      setGlide(false);
       void loadRest();
     }
 
@@ -129,13 +167,16 @@ export function OfferPhoto({ offer, layout }: { offer: Offer; layout: PhotoLayou
     if (started === null) return;
 
     const travelled = event.clientX - started.from;
+    const carried = Math.abs(travelled) >= SWIPE_MIN;
     drag.current = null;
     swallowClick.current = started.moved;
+
+    setGlide(!carried);
     setPull(0);
 
     // Dragged left means asking for what is to the right, the way a page of pictures
     // moves under a finger.
-    if (Math.abs(travelled) >= SWIPE_MIN) void step(travelled < 0 ? 1 : -1);
+    if (carried) void step(travelled < 0 ? 1 : -1);
   }
 
   if (offer.photo === null || broken) {
@@ -148,7 +189,24 @@ export function OfferPhoto({ offer, layout }: { offer: Offer; layout: PhotoLayou
     );
   }
 
-  const dragging = drag.current !== null;
+  /**
+   * Wraps, so the strip has a neighbour on both sides at every position. Until the rest
+   * of the gallery has arrived there is only one photograph to hand, and it stands in for
+   * its own neighbours: a picture sliding in is a truer promise of what a drag does than
+   * a hole in the card, and it is replaced the moment the fetch lands.
+   */
+  function photoAt(position: number): string {
+    const wrapped = ((position % photos.length) + photos.length) % photos.length;
+    return photos[wrapped] ?? photos[0] ?? '';
+  }
+
+  /**
+   * Whether the frames either side carry a picture. Once the gallery has arrived they
+   * hold the real neighbours; during a drag that got in first they hold the one
+   * photograph we have, already in cache, so the card shows a picture moving rather than
+   * a hole opening.
+   */
+  const neighbours = photos.length > 1 || pull !== 0;
 
   return (
     // group/photo rather than group: the card is a group of its own and the arrows must
@@ -160,11 +218,14 @@ export function OfferPhoto({ offer, layout }: { offer: Offer; layout: PhotoLayou
       className={`group/photo relative touch-pan-y overflow-hidden bg-graphite-900 select-none ${
         total > 1 ? 'cursor-grab active:cursor-grabbing' : ''
       } ${FRAME[layout]}`}
+      onPointerEnter={onPointerEnter}
+      onPointerLeave={onPointerLeave}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={() => {
         drag.current = null;
+        setGlide(true);
         setPull(0);
       }}
       onClickCapture={(event) => {
@@ -176,20 +237,38 @@ export function OfferPhoto({ offer, layout }: { offer: Offer; layout: PhotoLayou
         event.stopPropagation();
       }}
     >
-      <img
-        src={photos[index] ?? photos[0]}
-        alt=""
-        // Thousands of cards exist at once and only a handful are ever on screen.
-        loading="lazy"
-        decoding="async"
-        // The browser's own image drag would start instead of ours.
-        draggable={false}
-        onError={() => setBroken(true)}
-        style={{ transform: `translateX(${pull}px)` }}
-        // No transition while the pointer is down: the picture has to sit under it
-        // rather than chase it. Releasing is where the spring back belongs.
-        className={`h-full w-full object-cover ${dragging ? '' : 'transition-transform duration-200'}`}
-      />
+      {/*
+        Three frames wide and parked on the middle one, so a drag uncovers the neighbour
+        instead of the empty box behind a single picture. Percentages are of the track,
+        which is three frames across, so one frame is a third of it.
+      */}
+      <div
+        style={{ width: '300%', transform: `translateX(calc(-33.3333% + ${pull}px))` }}
+        className={`flex h-full ${glide ? 'transition-transform duration-200' : ''}`}
+      >
+        {[-1, 0, 1].map((step) => (
+          <div key={step} style={{ width: '33.3333%' }} className="h-full shrink-0">
+            {/* The frames are always here, so the geometry never moves; the pictures in
+                the outer two are not, or every card in view would fetch three images to
+                show one. They appear once the gallery has arrived, and during a drag,
+                which is the only time they can be seen. */}
+            {(step === 0 || neighbours) && (
+              <img
+                src={photoAt(index + step)}
+                alt=""
+                // Thousands of cards exist at once and only a handful are on screen.
+                loading="lazy"
+                decoding="async"
+                // The browser's own image drag would start instead of ours.
+                draggable={false}
+                // Only the one actually on show decides that the gallery is broken.
+                onError={step === 0 ? () => setBroken(true) : undefined}
+                className="h-full w-full object-cover"
+              />
+            )}
+          </div>
+        ))}
+      </div>
 
       {total > 1 && (
         <>
