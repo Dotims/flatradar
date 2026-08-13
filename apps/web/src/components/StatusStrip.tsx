@@ -1,6 +1,5 @@
 import { minutesSince, since } from '../format.ts';
 import type { SourceStatus } from '../types.ts';
-import type { PipelineCounts } from './PipelineGraph.tsx';
 
 const STALE_AFTER_MIN = 40;
 
@@ -29,21 +28,11 @@ function Feed({ status, name }: { status: SourceStatus | undefined; name: string
 }
 
 /**
- * The pipeline as one line. The full graph explains the system and the owner settled
- * those questions weeks ago, so it folds away and this keeps the fact that changes:
- * how fresh each feed is.
+ * How fresh each feed is, and how much is in the database. That is the whole of it now:
+ * a diagram of the stages between the two used to fold out from here, and it explained a
+ * system the owner had stopped needing explained.
  */
-export function StatusStrip({
-  counts,
-  sources,
-  expanded,
-  onToggleExpanded,
-}: {
-  counts: PipelineCounts;
-  sources: SourceStatus[];
-  expanded: boolean;
-  onToggleExpanded: () => void;
-}) {
+export function StatusStrip({ total, sources }: { total: number; sources: SourceStatus[] }) {
   const byName = (name: string) => sources.find((status) => status.source === name);
 
   return (
@@ -56,18 +45,9 @@ export function StatusStrip({
       <span className="hidden h-4 w-px bg-line sm:block" />
 
       <span className="flex items-baseline gap-1.5">
-        <span className="num text-sm text-ink">{counts.total}</span>
+        <span className="num text-sm text-ink">{total}</span>
         <span className="tag">ofert w bazie</span>
       </span>
-
-      <button
-        type="button"
-        onClick={onToggleExpanded}
-        aria-expanded={expanded}
-        className="tag ml-auto normal-case transition-colors hover:text-ink-dim"
-      >
-        {expanded ? 'zwiń przepływ' : 'przepływ'}
-      </button>
     </div>
   );
 }

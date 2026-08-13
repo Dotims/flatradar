@@ -3,7 +3,6 @@ import { FilterBar } from './components/FilterBar.tsx';
 import { OfferCard } from './components/OfferCard.tsx';
 import { OfferDetail } from './components/OfferDetail.tsx';
 import { OfferMap } from './components/OfferMap.tsx';
-import { PipelineGraph } from './components/PipelineGraph.tsx';
 import { StatusStrip } from './components/StatusStrip.tsx';
 import {
   applyFilters,
@@ -18,7 +17,7 @@ import { minutesSince, since } from './format.ts';
 import { useMarks, withMarks } from './marks.ts';
 import { isNewSince, useLastSeen } from './seen.ts';
 import { useTheme } from './theme.ts';
-import type { Offer, SortKey, SourceStatus, Tier } from './types.ts';
+import type { Offer, SortKey, SourceStatus } from './types.ts';
 import { useView, VIEW_CARD, VIEW_LAYOUT, VIEWS } from './views.ts';
 
 /*
@@ -31,7 +30,7 @@ import { useView, VIEW_CARD, VIEW_LAYOUT, VIEWS } from './views.ts';
   where they are.
   FIRST VIEWPORT: freshness and the bounds in one bar, then the whole of the rest of the
   screen split between the listings and the map, both readable without scrolling to them.
-  FORM: node-graph pipeline, pinned by the brief, folded away by default.
+  FORM: one status line over the bounds; the stages behind it are the collector's business.
   FINISH: unreviewed and undocumented is unfinished; this build ends with the finish
   review, the verdict, and DESIGN.md
 */
@@ -106,7 +105,6 @@ export function App() {
     setStateFilters(next);
   }, []);
   const [activeId, setActiveId] = useState<number | null>(null);
-  const [graphOpen, setGraphOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
   const [sort, setSort] = useState<SortKey>('newest');
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -261,18 +259,6 @@ export function App() {
     return narrowed.length === 0 ? null : `Zawężają: ${narrowed.join(', ')}.`;
   }, [filters]);
 
-  const counts = useMemo(() => {
-    const tiers: Record<Tier, number> = { top: 0, worth: 0, other: 0 };
-    for (const offer of offers) tiers[offer.tier]++;
-
-    return {
-      olx: offers.filter((offer) => offer.source === 'olx').length,
-      otodom: offers.filter((offer) => offer.source === 'otodom').length,
-      total: offers.length,
-      tiers,
-    };
-  }, [offers]);
-
   const marked = useMemo(
     () => ({
       favourites: offers.filter((offer) => offer.mark === 'favourite').length,
@@ -360,20 +346,7 @@ export function App() {
             <span className="tag animate-drift">wczytuję oferty</span>
           </div>
         ) : (
-          <StatusStrip
-            counts={counts}
-            sources={sources}
-            expanded={graphOpen}
-            onToggleExpanded={() => setGraphOpen((open) => !open)}
-          />
-        )}
-
-        {graphOpen && (
-          // Capped: the frame below cannot scroll away, so an unbounded panel here would
-          // push the listings and the map off the bottom of the screen.
-          <div className="mt-4 max-h-[45dvh] overflow-x-clip overflow-y-auto">
-            <PipelineGraph counts={counts} rulesVersion="v4" sources={sources} />
-          </div>
+          <StatusStrip total={offers.length} sources={sources} />
         )}
 
         <div className="mt-4 pb-4">

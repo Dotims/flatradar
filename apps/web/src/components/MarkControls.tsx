@@ -1,6 +1,6 @@
 import type { Mark } from '../types.ts';
 
-/** 1px strokes, no fills, matching the marks the pipeline graph draws. */
+/** 1px strokes, no fills, the way every system mark on the page is drawn. */
 function Glyph({ kind, filled }: { kind: 'keep' | 'drop'; filled: boolean }) {
   const paths = {
     keep: 'M8 1.8l1.9 3.9 4.3.6-3.1 3 .7 4.3L8 11.6l-3.8 2 .7-4.3-3.1-3 4.3-.6z',

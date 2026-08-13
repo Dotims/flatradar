@@ -25,11 +25,17 @@ const HOVER_INTENT_MS = 180;
  * carry one, so the picture takes a strip down the left and the card keeps the height it
  * had before there were any pictures at all.
  *
+ * A fixed height on the tile rather than an aspect ratio. The grid stretches its columns
+ * to fill whatever width the listing pane has, so a ratio made every card's height a
+ * function of the browser window: the same six listings were 200px tall beside the map
+ * and over 300px with the map closed, and the cards never settled into a shape you could
+ * scan. Height is the tile's own decision now and the picture is cropped into it.
+ *
  * No rounding here: the card clips its own corners, so a radius on this would only ever
  * show up as a seam inside them.
  */
 const FRAME: Record<PhotoLayout, string> = {
-  tile: 'aspect-[4/3] w-full border-b border-line',
+  tile: 'h-48 w-full shrink-0 border-b border-line',
   row: 'w-32 shrink-0 self-stretch border-r border-line @sm:w-40 @xl:w-52',
 };
 
