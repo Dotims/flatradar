@@ -1,3 +1,4 @@
+import { FILTERS_KEY, readKey, type KeyValueStore } from './storage.ts';
 import type { Offer, SortKey } from './types.ts';
 
 /** Every bound is optional: a blank box is a bound the owner did not ask for. */
@@ -74,6 +75,55 @@ export function applyFilters(offers: Offer[], filters: Filters): Offer[] {
 
     return !filters.hiddenDistricts.includes(offer.district ?? NO_DISTRICT);
   });
+}
+
+/**
+ * Reads the filters the browser last had set.
+ *
+ * Local storage is editable by hand and outlives a deploy that changed the shape of this
+ * object, so what comes back is untrusted input: each field is checked on its own and
+ * anything unreadable becomes no bound at all rather than the default one. Resurrecting
+ * a default here would be worse than dropping it, because a cap the owner had cleared
+ * would come back silently and hide listings they had just asked to see.
+ */
+export function readStoredFilters(storage: KeyValueStore): Filters {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(readKey(storage, FILTERS_KEY) ?? 'null');
+  } catch {
+    return DEFAULT_FILTERS;
+  }
+
+  // Nothing stored yet, which is the first visit rather than a corrupt key.
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed))
+    return DEFAULT_FILTERS;
+  const stored = parsed as Record<string, unknown>;
+
+  return {
+    minCostPln: bound(stored['minCostPln']),
+    maxCostPln: bound(stored['maxCostPln']),
+    minAreaM2: bound(stored['minAreaM2']),
+    maxAreaM2: bound(stored['maxAreaM2']),
+    minRooms: bound(stored['minRooms']),
+    maxRooms: bound(stored['maxRooms']),
+    hiddenDistricts: names(stored['hiddenDistricts']),
+    privateOnly: stored['privateOnly'] === true,
+    favouritesOnly: stored['favouritesOnly'] === true,
+    showRejected: stored['showRejected'] === true,
+  };
+}
+
+export function writeFilters(storage: KeyValueStore, filters: Filters): void {
+  storage.setItem(FILTERS_KEY, JSON.stringify(filters));
+}
+
+function bound(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function names(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((entry): entry is string => typeof entry === 'string');
 }
 
 /** Only districts present in the data. */

@@ -15,6 +15,9 @@ const LEGACY_PREFIX = 'flatradar:';
 export const THEME_KEY = `${PREFIX}theme`;
 export const MARKS_KEY = `${PREFIX}marks`;
 export const VIEW_KEY = `${PREFIX}view`;
+export const FILTERS_KEY = `${PREFIX}filters`;
+/** When the listings were last looked at, so a return visit can say what arrived since. */
+export const SEEN_KEY = `${PREFIX}seen-at`;
 
 /** The slice of Storage these modules use, so a test can pass a plain object instead. */
 export interface KeyValueStore {

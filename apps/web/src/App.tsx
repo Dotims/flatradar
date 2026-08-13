@@ -8,13 +8,15 @@ import { StatusStrip } from './components/StatusStrip.tsx';
 import {
   applyFilters,
   availableDistricts,
-  DEFAULT_FILTERS,
+  readStoredFilters,
   SORTS,
   sortOffers,
+  writeFilters,
   type Filters,
 } from './filters.ts';
 import { minutesSince, since } from './format.ts';
 import { useMarks, withMarks } from './marks.ts';
+import { isNewSince, useLastSeen } from './seen.ts';
 import { useTheme } from './theme.ts';
 import type { Offer, SortKey, SourceStatus, Tier } from './types.ts';
 import { useView, VIEW_CARD, VIEW_LAYOUT, VIEWS } from './views.ts';
@@ -89,7 +91,20 @@ export function App() {
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [syncNote, setSyncNote] = useState<SyncNote | null>(null);
-  const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
+  const [filters, setStateFilters] = useState<Filters>(() =>
+    readStoredFilters(window.localStorage),
+  );
+
+  /**
+   * Written on every change rather than in an effect: an effect would also run on the
+   * first render and write back what was just read. Narrowing the list is most of what
+   * this page is for, and having to redo it on every visit made the filters feel like a
+   * thing to be tolerated rather than used.
+   */
+  const setFilters = useCallback((next: Filters) => {
+    writeFilters(window.localStorage, next);
+    setStateFilters(next);
+  }, []);
   const [activeId, setActiveId] = useState<number | null>(null);
   const [graphOpen, setGraphOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
@@ -97,6 +112,9 @@ export function App() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const { theme, toggle: toggleTheme } = useTheme();
   const { view, setView } = useView();
+
+  /** Frozen at mount, so what arrived since the last visit stays marked while it is read. */
+  const lastSeen = useLastSeen();
 
   /**
    * Kept in this browser rather than the database, because the page is shared. One
@@ -271,6 +289,7 @@ export function App() {
       theme={theme}
       onHover={setActiveId}
       onMark={setMark}
+      lastSeen={lastSeen}
     />
   );
 
@@ -445,6 +464,7 @@ export function App() {
                       active={offer.id === activeId}
                       selected={offer.id === selectedId}
                       layout={VIEW_CARD[view]}
+                      isNew={isNewSince(offer, lastSeen)}
                       onHover={setActiveId}
                       onSelect={() => selectOffer(offer)}
                       onMark={(next) => setMark(offer.id, next)}

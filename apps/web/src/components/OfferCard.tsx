@@ -9,6 +9,7 @@ export function OfferCard({
   active,
   selected,
   layout,
+  isNew,
   onHover,
   onSelect,
   onMark,
@@ -18,6 +19,8 @@ export function OfferCard({
   selected: boolean;
   /** A row in a list, or a tile in a grid. Only the photograph's place differs. */
   layout: PhotoLayout;
+  /** Turned up since this browser last looked. */
+  isNew: boolean;
   onHover: (id: number | null) => void;
   onSelect: () => void;
   onMark: (next: Mark | null) => void;
@@ -52,6 +55,14 @@ export function OfferCard({
           <div className="min-w-0">
             {/* One line, never two: the tags are short and wrapping them moved the title. */}
             <div className="flex items-center gap-x-2 overflow-hidden text-nowrap">
+              {/* Filled rather than outlined, and first in the row: this is the one label
+                  here that answers "is there any point reading on", so it has to win
+                  against a line of tags that all look alike. */}
+              {isNew && (
+                <span className="tag rounded-full bg-signal-500 px-1.5 py-0.5 text-on-signal">
+                  nowe
+                </span>
+              )}
               <span className={`tag ${offer.tier === 'top' ? 'text-signal-400' : ''}`}>
                 {tier.label}
               </span>

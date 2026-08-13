@@ -187,9 +187,13 @@ function DistrictPicker({
             <button
               type="button"
               onClick={() => onChange([...DEFAULT_HIDDEN_DISTRICTS])}
+              // Says how many and, on hover, which. "Moje domyślne" said neither, so the
+              // only way to find out what it did was to press it and read the chips
+              // afterwards, by which point the selection it replaced was gone.
+              title={`Ukrywa: ${DEFAULT_HIDDEN_DISTRICTS.join(', ')}`}
               className="tag normal-case underline decoration-line underline-offset-2 transition-colors hover:text-ink-dim"
             >
-              moje domyślne
+              ukryj moje dzielnice ({DEFAULT_HIDDEN_DISTRICTS.length})
             </button>
           </div>
 
@@ -202,20 +206,16 @@ function DistrictPicker({
                   type="button"
                   aria-pressed={on}
                   onClick={() => onChange(toggle(hidden, district))}
-                  className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-[0.6875rem] tracking-[0.04em] transition-colors duration-150 ${
+                  // No tick box. The chip already says which state it is in twice over, by
+                  // colour and by the line through an excluded name, and a 12px square
+                  // holding an 8px glyph reads as grit at this size rather than as a
+                  // control. aria-pressed above carries the state where colour cannot.
+                  className={`rounded-full border px-2.5 py-1 font-mono text-[0.6875rem] tracking-[0.04em] transition-colors duration-150 ${
                     on
                       ? 'border-signal-400/50 bg-signal-500/10 text-signal-300'
-                      : 'border-line text-ink-mute hover:border-line-strong hover:text-ink-dim'
+                      : 'border-line text-ink-mute line-through decoration-line-strong hover:border-line-strong hover:text-ink-dim'
                   }`}
                 >
-                  <span
-                    aria-hidden="true"
-                    className={`grid size-3 place-items-center rounded-[3px] border text-[8px] leading-none ${
-                      on ? 'border-signal-400/70' : 'border-line-strong'
-                    }`}
-                  >
-                    {on ? '✓' : ''}
-                  </span>
                   {district === NO_DISTRICT ? 'bez dzielnicy' : district}
                 </button>
               );

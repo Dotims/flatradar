@@ -2,6 +2,7 @@ import { divIcon, type Marker as LeafletMarker } from 'leaflet';
 import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet';
 import { area, pln, rooms, since } from '../format.ts';
+import { isNewSince } from '../seen.ts';
 import type { Theme } from '../theme.ts';
 import type { Mark, Offer, OfferDetail } from '../types.ts';
 import { MarkControls } from './MarkControls.tsx';
@@ -29,15 +30,25 @@ function shortPrice(value: number | null): string {
  * tokens rather than literals, because this markup is built by hand and would otherwise
  * stay dark on a white map.
  */
-function priceMarker(offer: Offer, active: boolean, selected: boolean) {
+function priceMarker(offer: Offer, active: boolean, selected: boolean, isNew: boolean) {
   const top = offer.tier === 'top';
-  const border = selected
-    ? 'border-color:var(--color-signal-400);box-shadow:0 0 0 3px color-mix(in srgb, var(--color-signal-400) 28%, transparent)'
-    : active
-      ? 'border-color:var(--color-signal-400)'
-      : top
-        ? 'border-color:color-mix(in srgb, var(--color-signal-400) 55%, transparent)'
-        : 'border-color:var(--color-line-strong)';
+  const borderColor =
+    selected || active
+      ? 'var(--color-signal-400)'
+      : isNew
+        ? 'var(--color-signal-500)'
+        : top
+          ? 'color-mix(in srgb, var(--color-signal-400) 55%, transparent)'
+          : 'var(--color-line-strong)';
+
+  // Both rings can be on at once, because being selected and being new say different
+  // things and dropping one for the other is how an arrival goes unnoticed.
+  const rings = [
+    selected ? '0 0 0 3px color-mix(in srgb, var(--color-signal-400) 28%, transparent)' : null,
+    isNew ? NEW_HALO : null,
+  ].filter((ring) => ring !== null);
+
+  const border = `border-color:${borderColor}${rings.length > 0 ? `;box-shadow:${rings.join(',')}` : ''}`;
 
   return divIcon({
     className: '',
@@ -62,8 +73,19 @@ function priceMarker(offer: Offer, active: boolean, selected: boolean) {
  */
 const DOT = 16;
 
-function dotMarker(offer: Offer, active: boolean, selected: boolean) {
-  const lit = active || selected || offer.tier === 'top';
+/**
+ * What marks a listing that turned up since this browser last looked. A glow rather than
+ * the word, because the word does not fit on a 58px price pill and a map at city zoom is
+ * read by scanning rather than by reading. The word itself is on the card and in the
+ * popup, where there is room for it.
+ */
+const NEW_HALO =
+  '0 0 0 2px var(--color-signal-500),0 0 12px 2px color-mix(in srgb, var(--color-signal-500) 45%, transparent)';
+
+function dotMarker(offer: Offer, active: boolean, selected: boolean, isNew: boolean) {
+  const lit = active || selected || offer.tier === 'top' || isNew;
+  // The ground ring stops a dot dissolving into a busy tile; the halo sits outside it.
+  const ground = '0 0 0 1.5px color-mix(in srgb, var(--color-void) 65%, transparent)';
 
   return divIcon({
     className: '',
@@ -72,8 +94,8 @@ function dotMarker(offer: Offer, active: boolean, selected: boolean) {
     html: `<span style="
       display:block;width:${DOT}px;height:${DOT}px;border-radius:9999px;
       border:2px solid ${lit ? 'var(--color-signal-400)' : 'var(--color-line-strong)'};
-      background:${lit ? 'color-mix(in srgb, var(--color-signal-500) 55%, transparent)' : 'var(--color-graphite-800)'};
-      box-shadow:0 0 0 1.5px color-mix(in srgb, var(--color-void) 65%, transparent);
+      background:${isNew ? 'var(--color-signal-500)' : lit ? 'color-mix(in srgb, var(--color-signal-500) 55%, transparent)' : 'var(--color-graphite-800)'};
+      box-shadow:${isNew ? `${ground},${NEW_HALO}` : ground};
     "></span>`,
   });
 }
@@ -259,10 +281,12 @@ function FlyToSelected({
 function PopupBody({
   offer,
   open,
+  isNew,
   onMark,
 }: {
   offer: Offer;
   open: boolean;
+  isNew: boolean;
   onMark: (next: Mark | null) => void;
 }) {
   const [photo, setPhoto] = useState<string | null>(null);
@@ -292,6 +316,12 @@ function PopupBody({
           alt=""
           className="mb-2.5 aspect-[4/3] w-full rounded-lg bg-graphite-900 object-cover"
         />
+      )}
+
+      {isNew && (
+        <span className="tag mb-1.5 inline-block rounded-full bg-signal-500 px-1.5 py-0.5 text-on-signal">
+          nowe
+        </span>
       )}
 
       <div className="flex items-baseline justify-between gap-2">
@@ -324,6 +354,7 @@ function Pins({
   activeId,
   selectedId,
   markers,
+  lastSeen,
   onHover,
   onMark,
 }: {
@@ -331,6 +362,8 @@ function Pins({
   activeId: number | null;
   selectedId: number | null;
   markers: RefObject<Map<number, LeafletMarker>>;
+  /** When this browser last looked, so arrivals since then can be picked out. */
+  lastSeen: string | null;
   onHover: (id: number | null) => void;
   onMark: (id: number, next: Mark | null) => void;
 }) {
@@ -344,6 +377,7 @@ function Pins({
         const active = offer.id === activeId;
         const selected = offer.id === selectedId;
         const showPrice = labelled.has(offer.id);
+        const isNew = isNewSince(offer, lastSeen);
 
         return (
           <Marker
@@ -357,11 +391,13 @@ function Pins({
               else markers.current.set(offer.id, instance);
             }}
             icon={
-              showPrice ? priceMarker(offer, active, selected) : dotMarker(offer, active, selected)
+              showPrice
+                ? priceMarker(offer, active, selected, isNew)
+                : dotMarker(offer, active, selected, isNew)
             }
             // Labels still touch at the edges; the one being pointed at comes to the front.
             zIndexOffset={selected ? 2000 : active ? 1000 : showPrice ? 500 : 0}
-            title={`${offer.title}${isExact(offer) ? '' : ' - przybliżona okolica'}`}
+            title={`${isNew ? '[NOWE] ' : ''}${offer.title}${isExact(offer) ? '' : ' - przybliżona okolica'}`}
             // No click handler: the pin opens its own preview and nothing else. Wiring
             // selection here as well opened the side panel on top of the popup.
             eventHandlers={{
@@ -375,6 +411,7 @@ function Pins({
               <PopupBody
                 offer={offer}
                 open={openId === offer.id}
+                isNew={isNew}
                 onMark={(next) => onMark(offer.id, next)}
               />
             </Popup>
@@ -390,6 +427,7 @@ export function OfferMap({
   activeId,
   selectedId,
   theme,
+  lastSeen,
   onHover,
   onMark,
 }: {
@@ -397,6 +435,8 @@ export function OfferMap({
   activeId: number | null;
   selectedId: number | null;
   theme: Theme;
+  /** When this browser last looked. Null on a first visit, when nothing counts as new. */
+  lastSeen: string | null;
   onHover: (id: number | null) => void;
   onMark: (id: number, next: Mark | null) => void;
 }) {
@@ -448,6 +488,7 @@ export function OfferMap({
           activeId={activeId}
           selectedId={selectedId}
           markers={markers}
+          lastSeen={lastSeen}
           onHover={onHover}
           onMark={onMark}
         />
