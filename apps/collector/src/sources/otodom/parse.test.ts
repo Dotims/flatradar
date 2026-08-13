@@ -95,3 +95,10 @@ test('keeps both payloads when the listing page was read', () => {
   const offer = parseOtodomOffer(itemAt(0), detail);
   assert.deepEqual(offer.raw, { item: itemAt(0), ad: detail });
 });
+
+test('an ad page with no images yields an empty gallery', () => {
+  // The recorded ad carries no images array, which is also what a listing whose page was
+  // never fetched looks like: both have to come out as no photographs rather than throw.
+  assert.deepEqual(parseOtodomOffer(itemAt(0), detail).photos, []);
+  assert.deepEqual(parseOtodomOffer(itemAt(0)).photos, []);
+});

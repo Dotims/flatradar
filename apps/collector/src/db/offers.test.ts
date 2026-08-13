@@ -37,6 +37,7 @@ function offer(overrides: Partial<NormalizedOffer> = {}): NormalizedOffer {
     status: 'active',
     createdAtSource: '2026-08-01T10:00:00.000Z',
     pushedUpAt: null,
+    photos: [],
     raw: { id: 1 },
     ...overrides,
   };

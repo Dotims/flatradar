@@ -58,7 +58,19 @@ export async function upsertOffer(
   { now = new Date().toISOString(), preserveDetail = false }: UpsertOptions = {},
 ): Promise<UpsertResult> {
   const existing = await findExisting(sql, offer.source, offer.sourceId);
-  const raw = JSON.stringify(offer.raw);
+
+  /*
+    sql.json, not JSON.stringify. A string bound to a jsonb column is encoded as a JSON
+    string, so stringifying first stores the scalar "[\"a.jpg\"]" rather than the array,
+    and every jsonb operator then either returns null or fails outright:
+    jsonb_array_length(photos) errors with "cannot get array length of a scalar".
+
+    This is why `raw` reads back as text and needs unwrapping. Both columns are written
+    properly from here on; rows already stored keep the old shape, and the one reader of
+    `raw` copes with either.
+  */
+  const raw = sql.json(offer.raw as Parameters<typeof sql.json>[0]);
+  const photos = sql.json(offer.photos);
 
   if (existing === undefined) {
     const [row] = await sql<DbRow[]>`
@@ -68,7 +80,7 @@ export async function upsertOffer(
         area_m2, rooms, floor,
         city, district, subdistrict, street, lat, lng, coords_precision,
         is_private_owner, advertiser, status,
-        created_at_source, pushed_up_at, first_seen_at, last_seen_at, raw
+        created_at_source, pushed_up_at, first_seen_at, last_seen_at, photos, raw
       ) values (
         ${offer.source}, ${offer.sourceId}, ${offer.url}, ${offer.title}, ${offer.description},
         ${offer.pricePln}, ${offer.rentPln}, ${offer.depositPln},
@@ -76,7 +88,7 @@ export async function upsertOffer(
         ${offer.city}, ${offer.district}, ${offer.subdistrict}, ${offer.street},
         ${offer.lat}, ${offer.lng}, ${offer.coordsPrecision},
         ${offer.isPrivateOwner}, ${offer.advertiser}, ${offer.status},
-        ${offer.createdAtSource}, ${offer.pushedUpAt}, ${now}, ${now}, ${raw}
+        ${offer.createdAtSource}, ${offer.pushedUpAt}, ${now}, ${now}, ${photos}, ${raw}
       )
       returning id
     `;
@@ -110,7 +122,8 @@ export async function upsertOffer(
         lat = ${offer.lat}, lng = ${offer.lng}, coords_precision = ${offer.coordsPrecision},
         is_private_owner = ${offer.isPrivateOwner}, advertiser = ${offer.advertiser},
         status = ${offer.status},
-        pushed_up_at = ${offer.pushedUpAt}, last_seen_at = ${now}, raw = ${raw}
+        pushed_up_at = ${offer.pushedUpAt}, last_seen_at = ${now},
+        photos = ${photos}, raw = ${raw}
       where id = ${existing.id}
     `;
   }
@@ -182,7 +195,9 @@ function toStoredOffer(row: DbRow): StoredOffer {
     status: toStatus(readString(row, 'status')),
     createdAtSource: readNullableIso(row, 'created_at_source'),
     pushedUpAt: readNullableIso(row, 'pushed_up_at'),
-    // Not selected: classification reads none of it.
+    // Neither is selected: classification reads the numbers and the description, and
+    // would otherwise drag every stored payload and gallery through with them.
+    photos: [],
     raw: null,
   };
 }

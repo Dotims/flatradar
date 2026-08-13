@@ -24,7 +24,8 @@ export async function saveClassification(
       offer_id, tier, total_cost_pln, cost_certainty, reasons, rules_version, classified_at
     ) values (
       ${offerId}, ${classification.tier}, ${classification.totalCostPln},
-      ${classification.costCertainty}, ${JSON.stringify(classification.reasons)},
+      -- sql.json, so this lands as an array rather than a JSON string holding one.
+      ${classification.costCertainty}, ${sql.json(classification.reasons)},
       ${rulesVersion}, now()
     )
     on conflict (offer_id) do update set
@@ -59,6 +60,14 @@ export interface ClassifiedOffer {
   coordsPrecision: string | null;
   createdAtSource: string | null;
   firstSeenAt: string;
+  /**
+   * The first photograph only. Sending all of them would roughly double a payload that
+   * is already 2.8MB; the rest are one request away on the detail endpoint, made when
+   * somebody actually looks past the first.
+   */
+  photo: string | null;
+  /** How many there are in total, so a card knows whether there is a second to show. */
+  photoCount: number;
   /** The same flat advertised elsewhere, hidden from the list but still reachable. */
   alsoOn: { source: string; url: string }[];
 }
@@ -97,6 +106,8 @@ function toClassifiedOffer(row: DbRow): ClassifiedOffer {
     coordsPrecision: readNullableString(row, 'coords_precision'),
     createdAtSource: readNullableIso(row, 'created_at_source'),
     firstSeenAt: readIso(row, 'first_seen_at'),
+    photo: readNullableString(row, 'photo'),
+    photoCount: readNumber(row, 'photo_count'),
     alsoOn: readAlsoOn(row),
   };
 }
@@ -128,6 +139,12 @@ export async function listClassifiedOffers(sql: Queryable): Promise<ClassifiedOf
     select o.id, o.source, o.url, o.title, o.district, o.area_m2, o.rooms, o.floor,
            o.price_pln, o.rent_pln, o.is_private_owner, o.lat, o.lng, o.coords_precision,
            o.created_at_source, o.first_seen_at,
+           -- ->> 0 is null on an empty array, which is exactly the "no photograph" case.
+           o.photos ->> 0 as photo,
+           -- The type is checked rather than assumed: jsonb_array_length raises on a
+           -- scalar, which would take the whole endpoint down over a thumbnail.
+           case when jsonb_typeof(o.photos) = 'array' then jsonb_array_length(o.photos)
+                else 0 end as photo_count,
            c.tier, c.total_cost_pln, c.cost_certainty, c.reasons,
            coalesce(dupes.also_on, '[]'::jsonb) as also_on
     from classifications c

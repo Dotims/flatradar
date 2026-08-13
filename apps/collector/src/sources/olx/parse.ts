@@ -59,6 +59,18 @@ function toIsoOrNull(value: string | null | undefined): string | null {
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
+/**
+ * OLX serves one templated URL per photograph and lets the caller name the size. 800x600
+ * is the card thumbnail with room to spare, and asking for the original would pull a
+ * multi-megabyte file into a grid of them.
+ */
+const OLX_PHOTO_SIZE = '800x600';
+
+function readPhotos(offer: OlxOffer): string[] {
+  if (!Array.isArray(offer.photos)) return [];
+  return offer.photos.map((photo) => photo.link.replace('{width}x{height}', OLX_PHOTO_SIZE));
+}
+
 export function parseOlxOffer(offer: OlxOffer): NormalizedOffer {
   const roomsValue = findParam(offer.params, 'rooms')?.value;
   const roomsCode =
@@ -101,6 +113,7 @@ export function parseOlxOffer(offer: OlxOffer): NormalizedOffer {
     // pushup_time is sometimes empty despite a bump, so fall back to the refresh time.
     pushedUpAt: toIsoOrNull(offer.pushup_time ?? offer.last_refresh_time),
 
+    photos: readPhotos(offer),
     raw: offer,
   };
 }

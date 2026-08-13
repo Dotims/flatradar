@@ -38,6 +38,8 @@ function offer(id: number): Offer {
     createdAtSource: null,
     firstSeenAt: '2026-08-08T00:00:00.000Z',
     mark: null,
+    photo: null,
+    photoCount: 0,
     alsoOn: [],
   };
 }

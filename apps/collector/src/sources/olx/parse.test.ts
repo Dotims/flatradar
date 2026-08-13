@@ -1,4 +1,4 @@
-import { deepStrictEqual, strictEqual } from 'node:assert/strict';
+import { deepStrictEqual, ok, strictEqual } from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { parseOlxOffer } from './parse.ts';
@@ -72,4 +72,21 @@ test('an unknown room count code does not break parsing', () => {
 test('keeps the portal response untouched', () => {
   const offer = offerAt(0);
   deepStrictEqual(parseOlxOffer(offer).raw, offer);
+});
+
+test('asks OLX for a card-sized photograph rather than the original', () => {
+  const photos = parseOlxOffer(offerAt(0)).photos;
+
+  ok(photos.length > 0, 'the fixture carries photographs');
+  ok(
+    photos.every((link) => !link.includes('{width}') && link.includes('800x600')),
+    'every templated size is filled in',
+  );
+});
+
+test('a listing with no photos array yields an empty gallery', () => {
+  const offer = structuredClone(offerAt(0));
+  delete offer.photos;
+
+  deepStrictEqual(parseOlxOffer(offer).photos, []);
 });

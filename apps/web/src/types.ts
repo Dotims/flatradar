@@ -30,6 +30,9 @@ export interface Offer {
   createdAtSource: string | null;
   firstSeenAt: string;
   mark: Mark | null;
+  /** The first photograph. The rest come from the detail endpoint, on demand. */
+  photo: string | null;
+  photoCount: number;
   /** The same flat advertised elsewhere. Kept out of the list, reachable from here. */
   alsoOn: { source: string; url: string }[];
 }

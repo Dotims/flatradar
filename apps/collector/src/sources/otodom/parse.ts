@@ -54,6 +54,20 @@ function toWholePln(money: { value: number } | null | undefined): number | null 
   return Math.round(money.value);
 }
 
+/**
+ * Otodom ships each photograph in four sizes and `medium` (655x491) is the one a card
+ * wants: `large` is 2048x1536, four to eight times the bytes for a picture that will be
+ * drawn a few hundred pixels wide. The others are fallbacks for an image missing that
+ * variant, in descending order of how close they are to the size we asked for.
+ */
+function readPhotos(ad: OtodomAd | undefined): string[] {
+  if (!Array.isArray(ad?.images)) return [];
+
+  return ad.images
+    .map((image) => image.medium ?? image.large ?? image.small ?? image.thumbnail ?? null)
+    .filter((link): link is string => link !== null);
+}
+
 /** The detail is optional: it costs a request, so only survivors of the filters have one. */
 export function parseOtodomOffer(item: OtodomListItem, ad?: OtodomAd): NormalizedOffer {
   const coordinates = ad?.location.coordinates ?? null;
@@ -96,6 +110,9 @@ export function parseOtodomOffer(item: OtodomListItem, ad?: OtodomAd): Normalize
     createdAtSource: toIsoOrNull(item.createdAtFirst ?? item.dateCreated),
     pushedUpAt: toIsoOrNull(item.pushedUpAt),
 
+    // Empty for a listing whose page was never fetched, which is most of them: the ad
+    // page costs a request, so only listings that survive the filters get one.
+    photos: readPhotos(ad),
     raw: ad === undefined ? item : { item, ad },
   };
 }

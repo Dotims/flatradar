@@ -1,5 +1,5 @@
 import type { Queryable } from './client.ts';
-import { readNullableString, readNumber, readString, type DbRow } from './rows.ts';
+import { readNullableString, readNumber, readString, readStringArray, type DbRow } from './rows.ts';
 
 export interface OfferDetail {
   id: number;
@@ -11,55 +11,27 @@ export interface OfferDetail {
   photos: string[];
 }
 
-/** OLX serves one templated URL per photo; Otodom ships ready sizes on the ad page. */
-function readPhotos(source: string, raw: unknown): string[] {
-  if (typeof raw !== 'object' || raw === null) return [];
+/** More than a dozen is a viewing, not a shortlist. */
+const PHOTO_LIMIT = 12;
 
-  if (source === 'olx') {
-    const photos = (raw as { photos?: unknown }).photos;
-    if (!Array.isArray(photos)) return [];
-
-    return photos
-      .map((photo: unknown) =>
-        typeof photo === 'object' &&
-        photo !== null &&
-        typeof (photo as { link?: unknown }).link === 'string'
-          ? (photo as { link: string }).link.replace('{width}x{height}', '800x600')
-          : null,
-      )
-      .filter((link): link is string => link !== null);
-  }
-
-  const images = (raw as { ad?: { images?: unknown } }).ad?.images;
-  if (!Array.isArray(images)) return [];
-
-  return images
-    .map((image: unknown) => {
-      if (typeof image !== 'object' || image === null) return null;
-      const sizes = image as { large?: unknown; medium?: unknown; thumbnail?: unknown };
-      const link = sizes.large ?? sizes.medium ?? sizes.thumbnail;
-      return typeof link === 'string' ? link : null;
-    })
-    .filter((link): link is string => link !== null);
-}
-
-/** Everything the detail panel shows. Kept out of the list payload: it is far heavier. */
+/**
+ * Everything the detail panel shows. Kept out of the list payload: the description is
+ * far heavier than every other field put together, and the list needs one photograph
+ * rather than all of them.
+ */
 export async function readOfferDetail(sql: Queryable, id: number): Promise<OfferDetail | null> {
   const [row] = await sql<DbRow[]>`
-    select id, source, url, title, description, raw from offers where id = ${id}
+    select id, source, url, title, description, photos from offers where id = ${id}
   `;
 
   if (row === undefined) return null;
 
-  const source = readString(row, 'source');
-  const raw = row['raw'];
-
   return {
     id: readNumber(row, 'id'),
-    source,
+    source: readString(row, 'source'),
     url: readString(row, 'url'),
     title: readString(row, 'title'),
     description: readNullableString(row, 'description'),
-    photos: readPhotos(source, typeof raw === 'string' ? JSON.parse(raw) : raw).slice(0, 12),
+    photos: readStringArray(row, 'photos').slice(0, PHOTO_LIMIT),
   };
 }

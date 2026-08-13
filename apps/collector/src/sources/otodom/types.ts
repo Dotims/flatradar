@@ -82,6 +82,16 @@ export interface OtodomAdResponse {
       /** The advert page names the agency even where the results page did not. */
       agency?: { name?: string | null } | null;
       owner?: { name?: string | null } | null;
+      /** Ready-made sizes, unlike OLX. Only the ad page carries them. */
+      images?: OtodomImage[] | null;
     };
   };
+}
+
+/** Four ready sizes off the same CDN: 184x138, 314x236, 655x491 and 2048x1536. */
+export interface OtodomImage {
+  large?: string | null;
+  medium?: string | null;
+  small?: string | null;
+  thumbnail?: string | null;
 }

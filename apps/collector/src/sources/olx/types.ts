@@ -53,6 +53,13 @@ export interface OlxOffer {
   params: OlxParam[];
   location: OlxLocation;
   map: OlxMap;
+  /** One templated URL per photograph; the size is chosen by the caller. */
+  photos?: OlxPhoto[] | null;
+}
+
+export interface OlxPhoto {
+  /** Contains the literal token `{width}x{height}`, e.g. ".../image;s={width}x{height}". */
+  link: string;
 }
 
 export interface OlxOffersResponse {

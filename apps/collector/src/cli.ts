@@ -1,3 +1,4 @@
+import { backfillPhotos } from './commands/backfill-photos.ts';
 import { classifyOffers } from './commands/classify.ts';
 import { collectAll } from './commands/collect.ts';
 import { collectOlx } from './commands/collect-olx.ts';
@@ -72,6 +73,12 @@ const COMMANDS: Record<string, (args: string[]) => Promise<void>> = {
     withDatabase(async (sql) => {
       const { pairs, hidden } = await dedupeOffers(sql);
       console.log(`Matched ${pairs} pairs, hid ${hidden} listings.`);
+    }),
+
+  'backfill:photos': () =>
+    withDatabase(async (sql) => {
+      const { read, filled } = await backfillPhotos(sql);
+      console.log(`Read ${read} listings without photographs, filled ${filled}.`);
     }),
 
   serve: async () => {
