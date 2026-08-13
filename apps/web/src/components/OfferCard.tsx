@@ -2,12 +2,13 @@ import { area, pln, pricePerM2, rooms, since } from '../format.ts';
 import { CERTAINTY, TIER } from '../tiers.ts';
 import type { Mark, Offer } from '../types.ts';
 import { MarkControls } from './MarkControls.tsx';
-import { OfferPhoto } from './OfferPhoto.tsx';
+import { OfferPhoto, type PhotoLayout } from './OfferPhoto.tsx';
 
 export function OfferCard({
   offer,
   active,
   selected,
+  layout,
   onHover,
   onSelect,
   onMark,
@@ -15,6 +16,8 @@ export function OfferCard({
   offer: Offer;
   active: boolean;
   selected: boolean;
+  /** A row in a list, or a tile in a grid. Only the photograph's place differs. */
+  layout: PhotoLayout;
   onHover: (id: number | null) => void;
   onSelect: () => void;
   onMark: (next: Mark | null) => void;
@@ -29,10 +32,10 @@ export function OfferCard({
       onClick={onSelect}
       // h-full so the card fills the grid row rather than setting its own height; the
       // parts inside then reserve their space so a one-line title cannot shrink it.
-      // overflow-hidden so the photograph takes the card's own top corners.
-      className={`rule @container relative flex h-full flex-col overflow-hidden rounded-xl bg-graphite-950 transition-colors duration-150 ${
-        offer.mark === 'rejected' ? 'opacity-55' : ''
-      } ${
+      // overflow-hidden so the photograph is clipped to the card's own corners.
+      className={`rule @container relative flex h-full overflow-hidden rounded-xl bg-graphite-950 transition-colors duration-150 ${
+        layout === 'row' ? 'flex-row' : 'flex-col'
+      } ${offer.mark === 'rejected' ? 'opacity-55' : ''} ${
         selected
           ? 'border-signal-400/70 bg-graphite-900'
           : active
@@ -40,9 +43,11 @@ export function OfferCard({
             : 'hover:border-line-strong'
       }`}
     >
-      <OfferPhoto offer={offer} />
+      <OfferPhoto offer={offer} layout={layout} />
 
-      <div className="flex min-h-0 flex-1 flex-col p-5">
+      {/* min-w-0 so the truncation inside actually happens: a flex child defaults to its
+          content's width, and the district line would push the card wider instead. */}
+      <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col p-5">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
             {/* One line, never two: the tags are short and wrapping them moved the title. */}

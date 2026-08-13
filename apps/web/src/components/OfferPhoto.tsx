@@ -1,15 +1,31 @@
 import { useEffect, useState } from 'react';
 import type { Offer, OfferDetail } from '../types.ts';
 
+export type PhotoLayout = 'row' | 'tile';
+
+/**
+ * Two shapes, because the two views ask different questions of a photograph. A tile is
+ * mostly picture, with the numbers underneath. A row is a line in a list that happens to
+ * carry one, so the picture takes a strip down the left and the card keeps the height it
+ * had before there were any pictures at all.
+ *
+ * No rounding here: the card clips its own corners, so a radius on this would only ever
+ * show up as a seam inside them.
+ */
+const FRAME: Record<PhotoLayout, string> = {
+  tile: 'aspect-[4/3] w-full border-b border-line',
+  row: 'w-32 shrink-0 self-stretch border-r border-line @sm:w-40 @xl:w-52',
+};
+
 /**
  * The photograph a card leads with, and the way to the rest of them.
  *
- * The list payload carries one URL per listing, because carrying all of them would
- * roughly double a body that is already 2.8MB for a gallery nobody has asked to see.
- * The rest arrive from the detail endpoint the first time somebody pages past the first,
- * for that one listing.
+ * The list payload carries one URL per listing, because carrying all of them would add
+ * another half megabyte to a body that is already 2.8MB, for a gallery nobody has asked
+ * to see. The rest arrive from the detail endpoint the first time somebody pages past
+ * the first, for that one listing.
  */
-export function OfferPhoto({ offer }: { offer: Offer }) {
+export function OfferPhoto({ offer, layout }: { offer: Offer; layout: PhotoLayout }) {
   const [photos, setPhotos] = useState<string[]>(() => (offer.photo === null ? [] : [offer.photo]));
   const [index, setIndex] = useState(0);
   const [loadingRest, setLoadingRest] = useState(false);
@@ -58,8 +74,10 @@ export function OfferPhoto({ offer }: { offer: Offer }) {
 
   if (offer.photo === null || broken) {
     return (
-      <div className="grid aspect-[4/3] w-full place-items-center rounded-t-xl border-b border-line bg-graphite-900">
-        <span className="tag text-ink-mute">{broken ? 'zdjęcie zniknęło' : 'bez zdjęcia'}</span>
+      <div className={`grid place-items-center bg-graphite-900 ${FRAME[layout]}`}>
+        <span className="tag px-2 text-center text-ink-mute">
+          {broken ? 'zdjęcie zniknęło' : 'bez zdjęcia'}
+        </span>
       </div>
     );
   }
@@ -69,7 +87,7 @@ export function OfferPhoto({ offer }: { offer: Offer }) {
   return (
     // group/photo rather than group: the card is a group of its own and the arrows must
     // not appear when the pointer is merely somewhere on the card.
-    <div className="group/photo relative aspect-[4/3] w-full overflow-hidden rounded-t-xl border-b border-line bg-graphite-900">
+    <div className={`group/photo relative overflow-hidden bg-graphite-900 ${FRAME[layout]}`}>
       <img
         src={photos[index] ?? photos[0]}
         alt=""

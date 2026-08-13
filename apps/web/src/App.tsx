@@ -17,7 +17,7 @@ import { minutesSince, since } from './format.ts';
 import { useMarks, withMarks } from './marks.ts';
 import { useTheme } from './theme.ts';
 import type { Offer, SortKey, SourceStatus, Tier } from './types.ts';
-import { useView, VIEW_LAYOUT, VIEWS } from './views.ts';
+import { useView, VIEW_CARD, VIEW_LAYOUT, VIEWS } from './views.ts';
 
 /*
   THESIS: a flat search is a pipeline with a verdict at the end, so the surface opens on
@@ -440,6 +440,7 @@ export function App() {
                       offer={offer}
                       active={offer.id === activeId}
                       selected={offer.id === selectedId}
+                      layout={VIEW_CARD[view]}
                       onHover={setActiveId}
                       onSelect={() => selectOffer(offer)}
                       onMark={(next) => setMark(offer.id, next)}
