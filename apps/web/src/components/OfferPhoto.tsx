@@ -1,7 +1,16 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import type { Offer, OfferDetail } from '../types.ts';
 
 export type PhotoLayout = 'row' | 'tile';
+
+/** How far a drag has to travel before it counts as asking for the next photograph. */
+const SWIPE_MIN = 44;
+
+/** Past this the picture stops following the pointer, so it never leaves its frame. */
+const DRAG_LIMIT = 110;
+
+/** Enough to tell a drag from the small movement inside an ordinary click. */
+const DRAG_STARTS = 6;
 
 /**
  * Two shapes, because the two views ask different questions of a photograph. A tile is
@@ -31,14 +40,24 @@ export function OfferPhoto({ offer, layout }: { offer: Offer; layout: PhotoLayou
   const [loadingRest, setLoadingRest] = useState(false);
   const [broken, setBroken] = useState(false);
 
+  /** How far the picture is currently pulled from its resting place, in pixels. */
+  const [pull, setPull] = useState(0);
+  const drag = useRef<{ from: number; moved: boolean } | null>(null);
+  /** Set when a drag ends, so the click it produces does not also select the listing. */
+  const swallowClick = useRef(false);
+
   // A card can be reused for another listing as the list is filtered and sorted.
   useEffect(() => {
     setPhotos(offer.photo === null ? [] : [offer.photo]);
     setIndex(0);
     setBroken(false);
+    setPull(0);
+    drag.current = null;
   }, [offer.id, offer.photo]);
 
   const hasMore = offer.photoCount > photos.length;
+  /** What the card claims to have, until the gallery itself says otherwise. */
+  const total = Math.max(offer.photoCount, photos.length);
 
   async function loadRest(): Promise<string[]> {
     if (!hasMore) return photos;
@@ -72,6 +91,53 @@ export function OfferPhoto({ offer, layout }: { offer: Offer; layout: PhotoLayou
     setBroken(false);
   }
 
+  /*
+    Dragging, on pointer events rather than mouse or touch ones, so a mouse, a finger and
+    a stylus are all the same gesture and there is no second code path to keep in step.
+
+    The pointer is captured on the way down: without it, a drag that leaves the frame
+    stops sending events and the picture sticks halfway out. The rest of the gallery is
+    fetched on the first real movement rather than on pointerdown, because pointerdown
+    also happens on an ordinary click of the card, and that would put a request behind
+    every card anyone clicks.
+  */
+  function onPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
+    if (total < 2) return;
+    // Capturing the pointer retargets everything that follows, including the click, so a
+    // press that began on an arrow would never reach the arrow.
+    if (event.target instanceof Element && event.target.closest('button') !== null) return;
+
+    drag.current = { from: event.clientX, moved: false };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  function onPointerMove(event: ReactPointerEvent<HTMLDivElement>) {
+    const started = drag.current;
+    if (started === null) return;
+
+    const travelled = event.clientX - started.from;
+    if (!started.moved && Math.abs(travelled) > DRAG_STARTS) {
+      started.moved = true;
+      void loadRest();
+    }
+
+    setPull(Math.max(-DRAG_LIMIT, Math.min(DRAG_LIMIT, travelled)));
+  }
+
+  function onPointerUp(event: ReactPointerEvent<HTMLDivElement>) {
+    const started = drag.current;
+    if (started === null) return;
+
+    const travelled = event.clientX - started.from;
+    drag.current = null;
+    swallowClick.current = started.moved;
+    setPull(0);
+
+    // Dragged left means asking for what is to the right, the way a page of pictures
+    // moves under a finger.
+    if (Math.abs(travelled) >= SWIPE_MIN) void step(travelled < 0 ? 1 : -1);
+  }
+
   if (offer.photo === null || broken) {
     return (
       <div className={`grid place-items-center bg-graphite-900 ${FRAME[layout]}`}>
@@ -82,20 +148,47 @@ export function OfferPhoto({ offer, layout }: { offer: Offer; layout: PhotoLayou
     );
   }
 
-  const total = Math.max(offer.photoCount, photos.length);
+  const dragging = drag.current !== null;
 
   return (
     // group/photo rather than group: the card is a group of its own and the arrows must
     // not appear when the pointer is merely somewhere on the card.
-    <div className={`group/photo relative overflow-hidden bg-graphite-900 ${FRAME[layout]}`}>
+    //
+    // touch-pan-y keeps vertical scrolling with the browser: without it the whole gesture
+    // is claimed here and the list cannot be scrolled by starting on a picture.
+    <div
+      className={`group/photo relative touch-pan-y overflow-hidden bg-graphite-900 select-none ${
+        total > 1 ? 'cursor-grab active:cursor-grabbing' : ''
+      } ${FRAME[layout]}`}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={() => {
+        drag.current = null;
+        setPull(0);
+      }}
+      onClickCapture={(event) => {
+        // The browser fires a click after a drag that started and ended here. Selecting
+        // the listing and pointing the map at it is not what letting go of a photograph
+        // should do.
+        if (!swallowClick.current) return;
+        swallowClick.current = false;
+        event.stopPropagation();
+      }}
+    >
       <img
         src={photos[index] ?? photos[0]}
         alt=""
         // Thousands of cards exist at once and only a handful are ever on screen.
         loading="lazy"
         decoding="async"
+        // The browser's own image drag would start instead of ours.
+        draggable={false}
         onError={() => setBroken(true)}
-        className="h-full w-full object-cover"
+        style={{ transform: `translateX(${pull}px)` }}
+        // No transition while the pointer is down: the picture has to sit under it
+        // rather than chase it. Releasing is where the spring back belongs.
+        className={`h-full w-full object-cover ${dragging ? '' : 'transition-transform duration-200'}`}
       />
 
       {total > 1 && (
