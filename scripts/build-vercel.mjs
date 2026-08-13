@@ -87,7 +87,7 @@ async function buildFunction(source) {
 
 rmSync(outputDir, { recursive: true, force: true });
 
-run('pnpm', ['--filter', '@flatradar/web', 'build']);
+run('pnpm', ['--filter', '@overheads/web', 'build']);
 cpSync(join(root, 'apps/web/dist'), join(outputDir, 'static'), { recursive: true });
 
 const routes = [];

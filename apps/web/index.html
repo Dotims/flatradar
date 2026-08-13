@@ -16,7 +16,11 @@
       (function () {
         var theme = 'dark';
         try {
-          var stored = localStorage.getItem('flatradar:theme');
+          // Both names: the key was renamed with the product, and React moves the value
+          // across on first read. This runs before React, so it has to know both or the
+          // page would flash the wrong theme once for everybody who visited before.
+          var stored =
+            localStorage.getItem('overheads:theme') ?? localStorage.getItem('flatradar:theme');
           var system = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
           theme = stored === 'light' || stored === 'dark' ? stored : system;
         } catch (error) {

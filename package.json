@@ -1,5 +1,5 @@
 {
-  "name": "flatradar",
+  "name": "overheads",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -9,8 +9,8 @@
     "node": ">=24"
   },
   "scripts": {
-    "collect": "pnpm --filter @flatradar/collector collect",
-    "serve": "pnpm --filter @flatradar/collector serve",
+    "collect": "pnpm --filter @overheads/collector collect",
+    "serve": "pnpm --filter @overheads/collector serve",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
     "lint": "eslint .",

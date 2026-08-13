@@ -1,4 +1,4 @@
-# FlatRadar design system
+# Overheads design system
 
 Recorded from the built dashboard, not from intentions. Tokens live in
 `apps/web/src/index.css` under `@theme`; everything below describes what shipped.

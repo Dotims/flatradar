@@ -1,5 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { assertIngestAllowed, ingestOlx } from '../../apps/collector/src/api/handlers.ts';
+import {
+  assertIngestAllowed,
+  ingestOlx,
+  readIngestToken,
+} from '../../apps/collector/src/api/handlers.ts';
 import { openDatabase, type Sql } from '../../apps/collector/src/db/client.ts';
 
 /** OLX will not answer this server, so a device on an ordinary connection posts here. */
@@ -13,8 +17,7 @@ export default async function handler(
   }
 
   try {
-    const presented = request.headers['x-flatradar-token'];
-    assertIngestAllowed(typeof presented === 'string' ? presented : null);
+    assertIngestAllowed(readIngestToken(request.headers));
   } catch (error) {
     response.status(401).json({ error: error instanceof Error ? error.message : 'Refused.' });
     return;

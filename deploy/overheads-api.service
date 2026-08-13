@@ -1,10 +1,10 @@
 [Unit]
-Description=FlatRadar: local API the dashboard reads
+Description=Overheads: local API the dashboard reads
 After=default.target
 
 [Service]
 Type=simple
-WorkingDirectory=%h/Desktop/projects/flatradar
+WorkingDirectory=%h/Desktop/projects/overheads
 ExecStart=/usr/bin/node apps/collector/src/cli.ts serve
 Restart=on-failure
 RestartSec=5

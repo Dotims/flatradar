@@ -1,4 +1,4 @@
-# FlatRadar
+# Overheads
 
 ## What it is
 
@@ -9,7 +9,7 @@ month, and rules out the districts and prices its owner does not want.
 ## The mechanism
 
 Portals advertise a rent and hide the rest. The building fee is a separate number when
-the advertiser bothers to fill it in, and utilities are prose in the description. FlatRadar
+the advertiser bothers to fill it in, and utilities are prose in the description. Overheads
 reassembles the real monthly cost from all three, says how much of that figure it actually
 read versus assumed, and sorts by it.
 

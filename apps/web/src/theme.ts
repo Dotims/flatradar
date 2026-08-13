@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
+import { readKey, THEME_KEY } from './storage.ts';
 
 export type Theme = 'dark' | 'light';
-
-export const THEME_KEY = 'flatradar:theme';
 
 /** Dark unless the machine asks for light. The design was drawn on black. */
 export function preferredTheme(): Theme {
@@ -10,7 +9,7 @@ export function preferredTheme(): Theme {
 }
 
 export function storedTheme(): Theme | null {
-  const value = window.localStorage.getItem(THEME_KEY);
+  const value = readKey(window.localStorage, THEME_KEY);
   return value === 'dark' || value === 'light' ? value : null;
 }
 

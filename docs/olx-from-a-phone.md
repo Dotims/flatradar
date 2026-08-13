@@ -26,7 +26,7 @@ GET https://www.olx.pl/api/v1/offers/?offset=0&limit=50&category_id=15&city_id=8
 ```
 POST https://<your-deployment>/api/ingest/olx
 Headers:  Content-Type: application/json
-          x-flatradar-token: <INGEST_TOKEN>
+          x-overheads-token: <INGEST_TOKEN>
 Body:     the result of action 1, as JSON
 ```
 
@@ -40,7 +40,7 @@ connecting a charger.
 curl -s 'https://www.olx.pl/api/v1/offers/?offset=0&limit=50&category_id=15&city_id=8959&sort_by=created_at:desc' \
   | curl -s -X POST http://127.0.0.1:4317/api/ingest/olx \
       -H 'Content-Type: application/json' \
-      -H "x-flatradar-token: $INGEST_TOKEN" --data-binary @-
+      -H "x-overheads-token: $INGEST_TOKEN" --data-binary @-
 ```
 
 Or just `pnpm collect`, which does the same thing directly.

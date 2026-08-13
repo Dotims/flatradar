@@ -3,13 +3,17 @@ import {
   assertIngestAllowed,
   ingestOlx,
   readDetail,
+  readIngestToken,
   readOffers,
   syncOtodom,
 } from './api/handlers.ts';
 import { openDatabase } from './db/client.ts';
 import { migrate } from './db/migrate.ts';
 
-const PORT = Number(process.env.FLATRADAR_PORT ?? 4317);
+// The old name is still read: it may be set in a shell or a unit file that predates the
+// rename, and a port silently reverting to the default would leave the dashboard's proxy
+// talking to nothing.
+const PORT = Number(process.env.OVERHEADS_PORT ?? process.env.FLATRADAR_PORT ?? 4317);
 /** Loopback only: binding wider would put scraped listings on the network by accident. */
 const HOST = '127.0.0.1';
 
@@ -61,7 +65,7 @@ export async function startServer(port: number = PORT): Promise<ReturnType<typeo
           return;
         }
         if (request.method === 'POST' && url.pathname === '/api/ingest/olx') {
-          assertIngestAllowed((request.headers['x-flatradar-token'] as string | undefined) ?? null);
+          assertIngestAllowed(readIngestToken(request.headers));
           sendJson(response, 200, await ingestOlx(sql, await readBody(request)));
           return;
         }
@@ -77,7 +81,7 @@ export async function startServer(port: number = PORT): Promise<ReturnType<typeo
   });
 
   server.listen(port, HOST, () => {
-    console.log(`FlatRadar API on http://${HOST}:${port}/api/offers`);
+    console.log(`Overheads API on http://${HOST}:${port}/api/offers`);
   });
 
   server.on('close', () => void sql.end());

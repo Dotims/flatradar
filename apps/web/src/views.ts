@@ -1,9 +1,8 @@
 import { useCallback, useState } from 'react';
+import { readKey, VIEW_KEY } from './storage.ts';
 
 /** How the listing column arranges its cards. */
 export type ViewKey = 'list' | 'grid';
-
-export const VIEW_STORAGE_KEY = 'flatradar:view';
 
 export const VIEWS: { key: ViewKey; label: string; hint: string }[] = [
   { key: 'list', label: 'lista', hint: 'Jedna oferta w rzędzie, zdjęcie po lewej' },
@@ -31,7 +30,7 @@ export const VIEW_CARD: Record<ViewKey, 'row' | 'tile'> = {
 };
 
 function stored(): ViewKey | null {
-  const value = window.localStorage.getItem(VIEW_STORAGE_KEY);
+  const value = readKey(window.localStorage, VIEW_KEY);
   if (value === 'list') return 'list';
   // `dense` was the tighter of two grids that briefly shipped together; the wider one
   // was dropped, and a browser still holding either name means the grid.
@@ -47,7 +46,7 @@ export function useView(): { view: ViewKey; setView: (next: ViewKey) => void } {
   const [view, setStateView] = useState<ViewKey>(() => stored() ?? 'list');
 
   const setView = useCallback((next: ViewKey) => {
-    window.localStorage.setItem(VIEW_STORAGE_KEY, next);
+    window.localStorage.setItem(VIEW_KEY, next);
     setStateView(next);
   }, []);
 

@@ -1,14 +1,14 @@
 [Unit]
-Description=FlatRadar: fetch new rental listings and classify them
+Description=Overheads: fetch new rental listings and classify them
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=oneshot
-WorkingDirectory=%h/Desktop/projects/flatradar
+WorkingDirectory=%h/Desktop/projects/overheads
 # Only OLX: Otodom is collected in the cloud, which OLX refuses from datacenter IPs.
-Environment=FLATRADAR_SOURCES=olx
-EnvironmentFile=%h/Desktop/projects/flatradar/.env
+Environment=OVERHEADS_SOURCES=olx
+EnvironmentFile=%h/Desktop/projects/overheads/.env
 # node directly, not pnpm: a unit does not inherit the shell PATH.
 ExecStart=/usr/bin/node apps/collector/src/cli.ts collect
 TimeoutStartSec=300

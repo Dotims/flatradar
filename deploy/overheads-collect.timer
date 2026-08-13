@@ -1,5 +1,5 @@
 [Unit]
-Description=FlatRadar: collect every 15 minutes
+Description=Overheads: collect every 15 minutes
 
 [Timer]
 # Two minutes after login rather than immediately, so a fresh boot is not competing

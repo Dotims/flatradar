@@ -1,4 +1,4 @@
-# FlatRadar
+# Overheads
 
 Watches new rental listings in Kraków on OLX and Otodom, drops the ones outside the
 target area, works out the real monthly cost (rent + building fee + utilities mentioned
@@ -15,7 +15,7 @@ OLX answers 403 to anything from a datacenter address. The block sits at the edg
 decided on the address before a single header is read, so nothing about the request can
 change the answer and there is nothing to disguise. It is collected from an ordinary
 connection instead: a local timer, or a phone posting to `/api/ingest/olx`
-(see `docs/olx-from-a-phone.md`). `FLATRADAR_SOURCES` picks the portals for a round.
+(see `docs/olx-from-a-phone.md`). `OVERHEADS_SOURCES` picks the portals for a round.
 
 ## Status
 
@@ -66,19 +66,19 @@ dependencies.
 ```bash
 pnpm install
 cp .env.example .env                            # then put your Neon connection string in it
-pnpm --filter @flatradar/collector migrate      # creates the schema
-pnpm --filter @flatradar/collector collect:olx     # fetches and stores OLX listings
-pnpm --filter @flatradar/collector collect:otodom # same for Otodom
-pnpm --filter @flatradar/collector classify     # judges what is stored, no network
-pnpm --filter @flatradar/collector status       # prints what is in the database
+pnpm --filter @overheads/collector migrate      # creates the schema
+pnpm --filter @overheads/collector collect:olx     # fetches and stores OLX listings
+pnpm --filter @overheads/collector collect:otodom # same for Otodom
+pnpm --filter @overheads/collector classify     # judges what is stored, no network
+pnpm --filter @overheads/collector status       # prints what is in the database
 ```
 
 The dashboard needs two terminals: the API reads the database, the dev server serves the
 page and proxies `/api` to it.
 
 ```bash
-pnpm --filter @flatradar/collector serve   # http://127.0.0.1:4317
-pnpm --filter @flatradar/web dev           # http://localhost:4318
+pnpm --filter @overheads/collector serve   # http://127.0.0.1:4317
+pnpm --filter @overheads/web dev           # http://localhost:4318
 ```
 
 Filters live in the browser: full monthly cost, minimum floor area, tier, district and

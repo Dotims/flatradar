@@ -35,4 +35,4 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           # OLX answers 403 from datacenter addresses. It is collected from a machine
           # on a normal connection instead, not disguised into getting through here.
-          FLATRADAR_SOURCES: otodom
+          OVERHEADS_SOURCES: otodom

@@ -1,13 +1,9 @@
 import { useCallback, useState } from 'react';
+import { MARKS_KEY, readKey, type KeyValueStore } from './storage.ts';
 import type { Mark, Offer } from './types.ts';
 
-const MARKS_KEY = 'flatradar:marks';
-
 /** Only what this module needs, so a test can pass a plain object instead of a browser. */
-export interface MarkStorage {
-  getItem: (key: string) => string | null;
-  setItem: (key: string, value: string) => void;
-}
+export type MarkStorage = KeyValueStore;
 
 function toMark(value: unknown): Mark | null {
   return value === 'favourite' || value === 'rejected' ? value : null;
@@ -27,7 +23,7 @@ export function readMarks(storage: MarkStorage): Map<number, Mark> {
 
   let parsed: unknown;
   try {
-    parsed = JSON.parse(storage.getItem(MARKS_KEY) ?? '{}');
+    parsed = JSON.parse(readKey(storage, MARKS_KEY) ?? '{}');
   } catch {
     return marks;
   }

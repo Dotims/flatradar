@@ -1,5 +1,5 @@
 /** Honest, and verified to get a 200 from both portals. */
-export const USER_AGENT = 'FlatRadar/0.1 (+https://github.com/Dotims/flatradar)';
+export const USER_AGENT = 'Overheads/0.1 (+https://github.com/Dotims/overheads)';
 
 const RETRY_DELAYS_MS = [1_000, 3_000, 9_000];
 

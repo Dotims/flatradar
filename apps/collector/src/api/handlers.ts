@@ -23,6 +23,22 @@ export function assertIngestAllowed(presented: string | null): void {
   }
 }
 
+/**
+ * Reads the ingest token out of the request, under either name.
+ *
+ * The rename to Overheads could not reach the sender: OLX rounds are posted by a shortcut
+ * on a phone, configured by hand and living nowhere in this repository. Dropping the old
+ * header would have stopped OLX collection silently, and the dashboard would have gone on
+ * looking healthy while its listings quietly aged. The old name goes once the shortcut has
+ * been changed over.
+ */
+export function readIngestToken(
+  headers: Record<string, string | string[] | undefined>,
+): string | null {
+  const presented = headers['x-overheads-token'] ?? headers['x-flatradar-token'];
+  return typeof presented === 'string' ? presented : null;
+}
+
 export interface SyncResult {
   source: string;
   seen: number;

@@ -13,13 +13,16 @@ type SourceName = keyof typeof COLLECTORS;
  * Otodom only and OLX is collected from a machine on a normal connection.
  */
 function requestedSources(): SourceName[] {
-  const raw = process.env.FLATRADAR_SOURCES;
+  // Both names, because the old one is set in an installed systemd unit and in the
+  // scheduled workflow. Losing it would quietly widen the cloud round back to OLX, whose
+  // every request from a datacenter address is refused.
+  const raw = process.env.OVERHEADS_SOURCES ?? process.env.FLATRADAR_SOURCES;
   if (raw === undefined || raw.trim() === '') return ['olx', 'otodom'];
 
   return raw.split(',').map((name) => {
     const source = name.trim().toLowerCase();
     if (source in COLLECTORS) return source as SourceName;
-    throw new Error(`Unknown source "${source}" in FLATRADAR_SOURCES.`);
+    throw new Error(`Unknown source "${source}" in OVERHEADS_SOURCES.`);
   });
 }
 
