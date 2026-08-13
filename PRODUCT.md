@@ -27,9 +27,9 @@ for a React role, so the interface is also evidence of how its author works.
 
 ## The verdicts
 
-- **W budżecie** — rent plus building fee plus utilities at or below 2600 zł.
-- **Tani najem** — the rent alone is at or below 2200 zł, but the full cost is higher.
-- **Odpada** — an excluded district, or too expensive to reach either bar.
+- **W budżecie** - rent plus building fee plus utilities at or below 2600 zł.
+- **Tani najem** - the rent alone is at or below 2200 zł, but the full cost is higher.
+- **Odpada** - an excluded district, or too expensive to reach either bar.
 
 Alongside each total sits how it was reached: read from the listing, claimed all-inclusive,
 or assumed (a missing building fee is taken as 400 zł, and every verdict leaning on that

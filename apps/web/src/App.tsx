@@ -288,8 +288,12 @@ export function App() {
         <header className="flex flex-wrap items-center justify-between gap-x-8 gap-y-3 pt-4 pb-3.5">
           <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
             <h1 className="text-xl font-semibold tracking-tight">
-              Flat<span className="lit">Radar</span>
+              Over<span className="lit">heads</span>
             </h1>
+            {/* The name means the running costs and the roof at once, and neither half
+                is obvious on its own, so the other one is spelled out beside it. Gone
+                below sm, where the header already wraps without it. */}
+            <p className="tag hidden normal-case sm:block">a roof over your head</p>
             <p className="tag normal-case">
               Kraków ·{' '}
               {disconnected ? (

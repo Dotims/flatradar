@@ -36,8 +36,8 @@ warm. Restrained strategy on purpose, because the visitor came to operate.
 System sans for prose, system mono for everything measured. The split is strict rather
 than stylistic: monospace means this is data.
 
-- `.num` — every amount, count, area and price per m², with `tabular-nums`.
-- `.tag` — 11px mono, uppercase, `0.08em` tracking, for labels, sources, parameters
+- `.num` - every amount, count, area and price per m², with `tabular-nums`.
+- `.tag` - 11px mono, uppercase, `0.08em` tracking, for labels, sources, parameters
   and the rules version.
 - Prose (headings, listing titles, help text) is sans and never monospace.
 
@@ -47,13 +47,13 @@ figures should not slant; it marks the total on a listing that fits.
 
 ## Components
 
-- **Card** — `rounded-xl`, 1px `--color-line`, graphite ground, no shadow. The `rule`
+- **Card** - `rounded-xl`, 1px `--color-line`, graphite ground, no shadow. The `rule`
   utility carries the border so it is one decision in one place.
-- **Pill** — full-radius, 1px border, mono uppercase label. Off: faint text, line
+- **Pill** - full-radius, 1px border, mono uppercase label. Off: faint text, line
   border. On: signal border, 10% signal ground, signal-300 text. Every filter is a pill.
-- **Accent button** — full-radius, `signal-400 → signal-600` gradient, black label.
+- **Accent button** - full-radius, `signal-400 → signal-600` gradient, black label.
   Exactly one per screen.
-- **Graph node** — a card with a 1px system mark, a mono count and a unit. Marks are
+- **Graph node** - a card with a 1px system mark, a mono count and a unit. Marks are
   drawn as 16px SVG paths with 1.25 stroke: `feed` for a portal, `rules` for the
   classifier, and `pass` / `partial` / `reject` for the three verdicts, so the tier is
   legible from the glyph alone. Tier nodes are buttons that toggle the matching filter.

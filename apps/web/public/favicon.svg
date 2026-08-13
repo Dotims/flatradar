@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Overheads">
+  <!--
+    The name read literally: a roof, and a head under it.
+
+    Two shapes and one colour, because a favicon is drawn at 16px and anything finer
+    turns to mud at that size. The tile is painted rather than left transparent so the
+    mark keeps its contrast on a light browser tab as well as a dark one, and the amber
+    is the fixed mid tone of the signal ramp, which is legible against both.
+  -->
+  <rect width="32" height="32" rx="7" fill="#1a1917" />
+  <path
+    d="M5 15.5 16 6.5l11 9"
+    fill="none"
+    stroke="#ffb224"
+    stroke-width="3.4"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <circle cx="16" cy="22.6" r="4.2" fill="#ffb224" />
+</svg>

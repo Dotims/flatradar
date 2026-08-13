@@ -1,15 +1,22 @@
+/**
+ * What a cell shows when the portal did not state the figure. A plain hyphen, not an
+ * em dash: the repo writes regular dashes everywhere, and one constant keeps the empty
+ * cells identical instead of drifting apart the next time one of them is edited.
+ */
+const BLANK = '-';
+
 export function pln(value: number | null): string {
-  if (value === null) return '—';
+  if (value === null) return BLANK;
   return `${value.toLocaleString('pl-PL')} zł`;
 }
 
 export function area(value: number | null): string {
-  if (value === null) return '—';
+  if (value === null) return BLANK;
   return `${value.toLocaleString('pl-PL', { maximumFractionDigits: 1 })} m²`;
 }
 
 export function rooms(value: number | null): string {
-  if (value === null) return '—';
+  if (value === null) return BLANK;
   if (value === 1) return 'kawalerka';
   return `${value} pok.`;
 }
@@ -21,7 +28,7 @@ const RELATIVE = new Intl.RelativeTimeFormat('pl', { numeric: 'always' });
  * counts go through Intl rather than a hand-rolled suffix that produced "1 dni temu".
  */
 export function since(iso: string | null): string {
-  if (iso === null) return '—';
+  if (iso === null) return BLANK;
 
   const minutes = Math.round((Date.now() - new Date(iso).getTime()) / 60_000);
   if (minutes < 1) return 'przed chwilą';
@@ -42,6 +49,6 @@ export function minutesSince(iso: string | null): number | null {
 }
 
 export function pricePerM2(price: number | null, m2: number | null): string {
-  if (price === null || m2 === null || m2 <= 0) return '—';
+  if (price === null || m2 === null || m2 <= 0) return BLANK;
   return `${Math.round(price / m2).toLocaleString('pl-PL')} zł/m²`;
 }

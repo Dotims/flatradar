@@ -16,7 +16,7 @@ test('relative times take the right Polish form', () => {
 });
 
 test('a missing timestamp is a dash, not an invalid date', () => {
-  assert.equal(since(null), '—');
+  assert.equal(since(null), '-');
   assert.equal(minutesSince(null), null);
   assert.equal(minutesSince('not a date'), null);
 });
