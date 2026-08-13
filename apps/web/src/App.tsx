@@ -17,6 +17,7 @@ import { minutesSince, since } from './format.ts';
 import { useMarks, withMarks } from './marks.ts';
 import { useTheme } from './theme.ts';
 import type { Offer, SortKey, SourceStatus, Tier } from './types.ts';
+import { useView, VIEW_LAYOUT, VIEWS } from './views.ts';
 
 /*
   THESIS: a flat search is a pipeline with a verdict at the end, so the surface opens on
@@ -52,15 +53,27 @@ const SIDE_BY_SIDE = '(min-width: 64rem)';
 
 type SyncNote = { kind: 'ok' | 'error'; text: string };
 
+/** The one pill shape the header uses, for sorting and for the layout switch alike. */
+function pill(selected: boolean): string {
+  return `rounded-full border px-2.5 py-0.5 font-mono text-[0.6875rem] tracking-[0.06em] uppercase transition-colors ${
+    selected
+      ? 'border-signal-400/60 bg-signal-500/10 text-signal-300'
+      : 'border-line text-ink-faint hover:border-line-strong hover:text-ink-dim'
+  }`;
+}
+
 /**
  * Stand-ins while the first response is in flight. The whole set arrives in one 2.7MB
  * body, which is a second or two on a normal connection, and the page used to spend that
  * time as a centred word on an empty screen. The frame is up immediately instead: the
  * bounds are usable before the listings land, and nothing moves when they do.
+ *
+ * Laid out by the same rules as the real list, so the rows it stands in for do not jump
+ * into a different shape when they arrive.
  */
-function OfferSkeleton() {
+function OfferSkeleton({ layout }: { layout: string }) {
   return (
-    <ul className="grid list-none gap-3">
+    <ul className={`grid list-none gap-3 ${layout}`}>
       {Array.from({ length: 6 }, (_, index) => (
         <li key={index} className="rule h-44 animate-drift rounded-xl bg-graphite-950" />
       ))}
@@ -83,6 +96,7 @@ export function App() {
   const [sort, setSort] = useState<SortKey>('newest');
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const { theme, toggle: toggleTheme } = useTheme();
+  const { view, setView } = useView();
 
   /**
    * Kept in this browser rather than the database, because the page is shared. One
@@ -362,25 +376,40 @@ export function App() {
                     type="button"
                     onClick={() => setSort(key)}
                     aria-pressed={sort === key}
-                    className={`rounded-full border px-2.5 py-0.5 font-mono text-[0.6875rem] tracking-[0.06em] uppercase transition-colors ${
-                      sort === key
-                        ? 'border-signal-400/60 bg-signal-500/10 text-signal-300'
-                        : 'border-line text-ink-faint hover:border-line-strong hover:text-ink-dim'
-                    }`}
+                    className={pill(sort === key)}
                   >
                     {label}
                   </button>
                 ))}
               </div>
             </div>
-            <span aria-live="polite" className="num text-xs text-ink-faint">
-              {visible.length} / {offers.length}
-            </span>
+
+            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-2">
+              {/* Set apart from the sorting pills by the divider: one changes which
+                  listings are on top, the other only changes how they are drawn. */}
+              <div className="flex flex-wrap gap-1.5 border-r border-line pr-3">
+                {VIEWS.map(({ key, label, hint }) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setView(key)}
+                    aria-pressed={view === key}
+                    title={hint}
+                    className={pill(view === key)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <span aria-live="polite" className="num text-xs text-ink-faint">
+                {visible.length} / {offers.length}
+              </span>
+            </div>
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 sm:px-8 lg:pr-6 lg:pl-10">
             {loading ? (
-              <OfferSkeleton />
+              <OfferSkeleton layout={VIEW_LAYOUT[view]} />
             ) : error !== null ? (
               <div className="rule max-w-md rounded-xl bg-graphite-950 p-6">
                 <h2 className="text-base font-medium text-ink">Panel nie ma skąd wziąć danych</h2>
@@ -402,10 +431,9 @@ export function App() {
                 )}
               </p>
             ) : (
-              // One card per row. Two of them fit across the old full-width list, but
-              // this column is half the screen now and the pair clipped the source tags
-              // and broke every title onto three lines.
-              <ul className="grid list-none gap-3">
+              // The card is a container query, so it reorganises itself at whatever
+              // width the chosen layout hands it rather than needing a variant each.
+              <ul className={`grid list-none gap-3 ${VIEW_LAYOUT[view]}`}>
                 {visible.map((offer) => (
                   <li key={offer.id}>
                     <OfferCard
