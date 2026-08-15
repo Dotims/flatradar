@@ -57,7 +57,7 @@ export async function upsertOffer(
   offer: NormalizedOffer,
   { now = new Date().toISOString(), preserveDetail = false }: UpsertOptions = {},
 ): Promise<UpsertResult> {
-  const existing = await findExisting(sql, offer.source, offer.sourceId);
+  let existing = await findExisting(sql, offer.source, offer.sourceId);
 
   /*
     sql.json, not JSON.stringify. A string bound to a jsonb column is encoded as a JSON
@@ -90,13 +90,29 @@ export async function upsertOffer(
         ${offer.isPrivateOwner}, ${offer.advertiser}, ${offer.status},
         ${offer.createdAtSource}, ${offer.pushedUpAt}, ${now}, ${now}, ${photos}, ${raw}
       )
+      -- Two rounds can be reading the same portal at once: the schedule and the sync
+      -- button on the dashboard both start one, and the check above is a separate
+      -- statement from this insert. Without this clause the second round hits
+      -- offers_source_source_id_key and the whole round dies on a listing that is
+      -- already safely stored. That is what failed Otodom at 22:32 on 2026-08-15.
+      on conflict (source, source_id) do nothing
       returning id
     `;
 
-    if (row === undefined) throw new Error('The insert returned no id.');
-    const offerId = readNumber(row, 'id');
-    await insertPriceHistory(sql, offerId, offer, now);
-    return { offerId, isNew: true, priceChanged: false };
+    if (row !== undefined) {
+      const offerId = readNumber(row, 'id');
+      await insertPriceHistory(sql, offerId, offer, now);
+      return { offerId, isNew: true, priceChanged: false };
+    }
+
+    // The other round won the race and has already counted it as new, so this one reads
+    // what it stored and treats the listing as seen again rather than found.
+    existing = await findExisting(sql, offer.source, offer.sourceId);
+    if (existing === undefined) {
+      throw new Error(
+        `Insert of ${offer.source} ${offer.sourceId} was refused and it is not stored.`,
+      );
+    }
   }
 
   // Only what an advertiser can edit. first_seen_at is ours, not the portal's.

@@ -2,8 +2,13 @@ import assert from 'node:assert/strict';
 import { after, before, beforeEach, describe, test } from 'node:test';
 import { openDatabase, type Sql } from './client.ts';
 import { migrate } from './migrate.ts';
-import { upsertOffer } from './offers.ts';
+import { upsertOffer, type UpsertResult } from './offers.ts';
 import type { NormalizedOffer } from '../domain/offer.ts';
+
+/** Only the concurrency case needs this: one round has to be mid-flight, not finished. */
+function pause(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 /**
  * Needs a throwaway Postgres. CI provides one; locally these are skipped unless
@@ -124,6 +129,47 @@ describe(
       assert.equal(Number(row?.price_pln), 1900);
       // jsonb arrives as text from this driver, so compare the parsed payload.
       assert.deepEqual(JSON.parse(String(row?.raw)), { ad: { images: ['a.jpg'] } });
+    });
+
+    test('two rounds storing the same new listing at once do not collide', async () => {
+      // The schedule and the sync button on the dashboard both start a collection, and
+      // the check for an existing row is a separate statement from the insert. Losing
+      // that race used to raise a duplicate key on offers_source_source_id_key and take
+      // the whole round down with it, which is what failed Otodom on 2026-08-15.
+      //
+      // Two upserts started together are not enough to reproduce it: the driver sends
+      // them down one connection and they end up in order. So the first round is held
+      // open in a transaction instead, and the second meets a listing that is inserted
+      // and not yet committed, which is exactly the window.
+      let commitFirst = () => {};
+      const held = new Promise<void>((resolve) => {
+        commitFirst = resolve;
+      });
+
+      let first: UpsertResult | undefined;
+      const firstRound = sql.begin(async (tx) => {
+        first = await upsertOffer(tx, offer({ sourceId: '77' }));
+        await held;
+      });
+
+      await pause(100);
+      const secondRound = upsertOffer(sql, offer({ sourceId: '77' }));
+      // The second round is now waiting on the unique index for the first to finish.
+      await pause(100);
+      commitFirst();
+
+      const second = await secondRound;
+      await firstRound;
+
+      assert.equal(first?.isNew, true);
+      // Seen again, not found: the round that got there first has announced it already.
+      assert.equal(second.isNew, false);
+      assert.equal(second.offerId, first?.offerId);
+
+      const [offers] = await sql`select count(*) as total from offers`;
+      assert.equal(Number(offers?.total), 1);
+      const [history] = await sql`select count(*) as total from price_history`;
+      assert.equal(Number(history?.total), 1);
     });
 
     test('the same id on two portals means two separate listings', async () => {
