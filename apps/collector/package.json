@@ -13,6 +13,8 @@
     "collect:otodom": "node --env-file-if-exists=../../.env src/cli.ts collect:otodom",
     "classify": "node --env-file-if-exists=../../.env src/cli.ts classify",
     "dedupe": "node --env-file-if-exists=../../.env src/cli.ts dedupe",
+    "notify": "node --env-file-if-exists=../../.env src/cli.ts notify",
+    "notify:seed": "node --env-file-if-exists=../../.env src/cli.ts notify:seed",
     "serve": "node --env-file-if-exists=../../.env src/cli.ts serve"
   }
 }
