@@ -18,6 +18,7 @@ function offer(overrides: Partial<NotifiableOffer> = {}): NotifiableOffer {
     totalCostPln: 2200,
     costCertainty: 'exact',
     isPrivateOwner: true,
+    photo: 'https://ireland.apollo.olxcdn.com:443/v1/files/abc-PL/image;s=800x600',
     ...overrides,
   };
 }

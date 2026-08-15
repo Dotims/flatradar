@@ -1,6 +1,6 @@
 import type { Sql } from '../db/client.ts';
 import { listOffersToNotify, markEverythingNotified, markNotified } from '../db/notifications.ts';
-import { offerMessage, sendMessage, type TelegramCredentials } from '../notify/telegram.ts';
+import { sendOffer, type TelegramCredentials } from '../notify/telegram.ts';
 import { sleep } from '../sources/http.ts';
 
 /**
@@ -29,7 +29,7 @@ export async function notifyNewOffers(sql: Sql, credentials: TelegramCredentials
   for (const offer of offers) {
     if (sent > 0) await sleep(BETWEEN_MESSAGES_MS);
 
-    await sendMessage(credentials, offerMessage(offer));
+    await sendOffer(credentials, offer);
     // Only now: a message Telegram never accepted must not count as delivered.
     await markNotified(sql, offer.id);
     sent += 1;

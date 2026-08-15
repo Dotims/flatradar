@@ -31,6 +31,8 @@ export interface NotifiableOffer {
   totalCostPln: number | null;
   costCertainty: CostCertainty;
   isPrivateOwner: boolean | null;
+  /** The first one only. A notification shows one picture; the rest are a tap away. */
+  photo: string | null;
 }
 
 function toCertainty(value: string): CostCertainty {
@@ -55,6 +57,7 @@ function toNotifiableOffer(row: DbRow): NotifiableOffer {
     totalCostPln: readNullableNumber(row, 'total_cost_pln'),
     costCertainty: toCertainty(readString(row, 'cost_certainty')),
     isPrivateOwner: readNullableBoolean(row, 'is_private_owner'),
+    photo: readNullableString(row, 'photo'),
   };
 }
 
@@ -81,6 +84,8 @@ export async function listOffersToNotify(sql: Sql, limit: number): Promise<Notif
   const rows = await sql<DbRow[]>`
     select o.id, o.source, o.url, o.title, o.district, o.area_m2, o.rooms, o.floor,
            o.price_pln, o.rent_pln, o.is_private_owner,
+           -- ->> 0 is null on an empty array, which is exactly the "no photograph" case.
+           o.photos ->> 0 as photo,
            c.total_cost_pln, c.cost_certainty
     from classifications c
     join offers o on o.id = c.offer_id

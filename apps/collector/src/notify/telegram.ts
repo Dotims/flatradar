@@ -79,17 +79,15 @@ export function offerMessage(offer: NotifiableOffer): string {
 type Attempt =
   { sent: true } | { sent: false; reason: string; retryable: boolean; waitMs: number | null };
 
-async function attemptSend(
-  url: string,
-  credentials: TelegramCredentials,
-  text: string,
-): Promise<Attempt> {
+async function attemptCall(url: string, payload: Record<string, string>): Promise<Attempt> {
   try {
     const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'User-Agent': USER_AGENT },
-      body: JSON.stringify({ chat_id: credentials.chatId, text, parse_mode: 'HTML' }),
-      signal: AbortSignal.timeout(15_000),
+      body: JSON.stringify(payload),
+      // Longer than the portal calls: sendPhoto makes Telegram fetch the image itself,
+      // and it answers only once it has.
+      signal: AbortSignal.timeout(30_000),
     });
 
     const body = (await response.json()) as {
@@ -119,22 +117,74 @@ async function attemptSend(
 }
 
 /**
- * One message. Failures are thrown rather than swallowed: a round that could not tell the
- * owner about a flat has not done its job, and the listing must stay unrecorded so the
- * next round tries again.
+ * One call to the API. Failures are thrown rather than swallowed: a round that could not
+ * tell the owner about a flat has not done its job, and the listing must stay unrecorded
+ * so the next round tries again.
  */
-export async function sendMessage(credentials: TelegramCredentials, text: string): Promise<void> {
-  const url = `https://api.telegram.org/bot${credentials.botToken}/sendMessage`;
+async function call(
+  credentials: TelegramCredentials,
+  method: string,
+  body: Record<string, string>,
+): Promise<void> {
+  const url = `https://api.telegram.org/bot${credentials.botToken}/${method}`;
 
   for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
-    const result = await attemptSend(url, credentials, text);
+    const result = await attemptCall(url, { chat_id: credentials.chatId, ...body });
     if (result.sent) return;
-    if (!result.retryable) throw new TelegramError('sendMessage', result.reason);
+    if (!result.retryable) throw new TelegramError(method, result.reason);
 
     const wait = result.waitMs ?? RETRY_DELAYS_MS[attempt];
-    if (wait === undefined) throw new TelegramError('sendMessage', result.reason);
+    if (wait === undefined) throw new TelegramError(method, result.reason);
     await sleep(wait);
   }
 
-  throw new TelegramError('sendMessage', 'gave up after retries');
+  throw new TelegramError(method, 'gave up after retries');
+}
+
+export async function sendMessage(credentials: TelegramCredentials, text: string): Promise<void> {
+  await call(credentials, 'sendMessage', { text, parse_mode: 'HTML' });
+}
+
+/**
+ * The picture is passed as a URL rather than uploaded: Telegram fetches it from the
+ * portal's CDN itself, which is one request this project does not make and one image it
+ * does not have to hold in memory. Verified against both portals, including OLX's
+ * `host:443/path;s=800x600` shape and Otodom's 264-character signed URL.
+ */
+export async function sendPhoto(
+  credentials: TelegramCredentials,
+  photo: string,
+  caption: string,
+): Promise<void> {
+  await call(credentials, 'sendPhoto', { photo, caption, parse_mode: 'HTML' });
+}
+
+/** A caption is capped at 1024 characters, and a title written in capitals can be long. */
+const CAPTION_LIMIT = 1_000;
+
+/**
+ * One listing, as one notification. The photograph is what makes a flat recognisable at a
+ * glance, so it leads when there is one.
+ *
+ * A picture the portal has already taken down, or one Telegram cannot fetch, must not cost
+ * the owner the alert: the same text is sent without it instead. That failure is not
+ * retried as a photograph, because whatever the CDN answered it will answer again.
+ */
+export async function sendOffer(
+  credentials: TelegramCredentials,
+  offer: NotifiableOffer,
+): Promise<void> {
+  const text = offerMessage(offer);
+
+  if (offer.photo !== null && text.length <= CAPTION_LIMIT) {
+    try {
+      await sendPhoto(credentials, offer.photo, text);
+      return;
+    } catch (error) {
+      if (!(error instanceof TelegramError)) throw error;
+      console.error(`photograph refused for offer ${offer.id}, sending text: ${error.message}`);
+    }
+  }
+
+  await sendMessage(credentials, text);
 }
