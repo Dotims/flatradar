@@ -25,6 +25,12 @@ const HOVER_INTENT_MS = 180;
  * carry one, so the picture takes a strip down the left and the card keeps the height it
  * had before there were any pictures at all.
  *
+ * The row frame has no height of its own on purpose, and `self-stretch` alone did not
+ * make that true: an image in normal flow still offers its own height to the flex line,
+ * so one portrait photograph, 276 by 598, made its card 450px tall beside neighbours of
+ * 216. The strip inside is taken out of flow instead, which is what actually leaves the
+ * height to the text.
+ *
  * A fixed height on the tile rather than an aspect ratio. The grid stretches its columns
  * to fill whatever width the listing pane has, so a ratio made every card's height a
  * function of the browser window: the same six listings were 200px tall beside the map
@@ -247,10 +253,14 @@ export function OfferPhoto({ offer, layout }: { offer: Offer; layout: PhotoLayou
         Three frames wide and parked on the middle one, so a drag uncovers the neighbour
         instead of the empty box behind a single picture. Percentages are of the track,
         which is three frames across, so one frame is a third of it.
+
+        Absolute, so the pictures fill the frame rather than deciding how tall it is. The
+        width beside `inset-0` over-constrains the box and the browser drops `right`,
+        which is the intent: three frames wide, as tall as the frame, no taller.
       */}
       <div
         style={{ width: '300%', transform: `translateX(calc(-33.3333% + ${pull}px))` }}
-        className={`flex h-full ${glide ? 'transition-transform duration-200' : ''}`}
+        className={`absolute inset-0 flex ${glide ? 'transition-transform duration-200' : ''}`}
       >
         {[-1, 0, 1].map((step) => (
           <div key={step} style={{ width: '33.3333%' }} className="h-full shrink-0">
