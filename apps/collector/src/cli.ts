@@ -7,6 +7,7 @@ import { dedupeOffers } from './commands/dedupe.ts';
 import { notifyNewOffers, seedNotifications } from './commands/notify.ts';
 import { config } from './config.ts';
 import { openDatabase, type Sql } from './db/client.ts';
+import type { NotifyFilters } from './domain/notify-filters.ts';
 import { migrate } from './db/migrate.ts';
 import { startServer } from './server.ts';
 
@@ -25,6 +26,24 @@ function count(raw: string | undefined): number | undefined {
   if (raw === undefined) return undefined;
   const value = Number(raw);
   return Number.isFinite(value) && value > 0 ? value : undefined;
+}
+
+/** The notification bounds in one line, so a round says what it was working under. */
+function describeFilters(filters: NotifyFilters): string {
+  const parts = [
+    filters.minCostPln === null ? null : `cost from ${filters.minCostPln}`,
+    filters.maxCostPln === null ? null : `cost to ${filters.maxCostPln}`,
+    filters.minAreaM2 === null ? null : `from ${filters.minAreaM2} m2`,
+    filters.maxAreaM2 === null ? null : `to ${filters.maxAreaM2} m2`,
+    filters.minRooms === null ? null : `from ${filters.minRooms} rooms`,
+    filters.maxRooms === null ? null : `to ${filters.maxRooms} rooms`,
+    filters.privateOnly ? 'private only' : null,
+    filters.hiddenDistricts.length === 0
+      ? null
+      : `${filters.hiddenDistricts.length} district(s) hidden`,
+  ].filter((part) => part !== null);
+
+  return parts.length === 0 ? 'none, everything in budget is announced' : parts.join(', ');
 }
 
 /** The shape every command but the server takes: connect, migrate, work, disconnect. */
@@ -84,7 +103,12 @@ const COMMANDS: Record<string, (args: string[]) => Promise<void>> = {
         throw new Error('TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID are not set. Put them in .env.');
       }
 
-      const sent = await notifyNewOffers(sql, credentials);
+      // Said out loud before the send: a bound that is not doing what the owner thinks
+      // shows up as an empty round, which looks exactly like a quiet afternoon.
+      const filters = config.notifyFilters();
+      console.log(`Bounds: ${describeFilters(filters)}`);
+
+      const sent = await notifyNewOffers(sql, credentials, filters);
       console.log(
         sent === 0 ? 'Nothing in budget left to announce.' : `Announced ${sent} listing(s).`,
       );

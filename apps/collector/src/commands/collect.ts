@@ -55,7 +55,7 @@ export async function collectAll(): Promise<void> {
     const credentials = config.telegram();
     if (credentials !== null) {
       try {
-        const sent = await notifyNewOffers(sql, credentials);
+        const sent = await notifyNewOffers(sql, credentials, config.notifyFilters());
         if (sent > 0) console.log(`Announced ${sent} listing(s) on Telegram.`);
       } catch (error) {
         const reason = error instanceof Error ? error.message : String(error);

@@ -1,4 +1,5 @@
 import type { Sql } from '../db/client.ts';
+import type { NotifyFilters } from '../domain/notify-filters.ts';
 import { listOffersToNotify, markEverythingNotified, markNotified } from '../db/notifications.ts';
 import { sendOffer, type TelegramCredentials } from '../notify/telegram.ts';
 import { sleep } from '../sources/http.ts';
@@ -22,8 +23,12 @@ const BETWEEN_MESSAGES_MS = 1_200;
  * failing loudly is what makes a wrong token or a blocked bot visible on the first round
  * instead of on the day a flat is missed.
  */
-export async function notifyNewOffers(sql: Sql, credentials: TelegramCredentials): Promise<number> {
-  const offers = await listOffersToNotify(sql, PER_ROUND);
+export async function notifyNewOffers(
+  sql: Sql,
+  credentials: TelegramCredentials,
+  filters: NotifyFilters,
+): Promise<number> {
+  const offers = await listOffersToNotify(sql, PER_ROUND, filters);
   let sent = 0;
 
   for (const offer of offers) {

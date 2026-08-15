@@ -1,5 +1,6 @@
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { readNotifyFilters } from './domain/notify-filters.ts';
 import type { TelegramCredentials } from './notify/telegram.ts';
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -30,5 +31,6 @@ function telegram(): TelegramCredentials | null {
 export const config = {
   databaseUrl,
   telegram,
+  notifyFilters: () => readNotifyFilters(process.env),
   migrationsDir: resolve(packageRoot, 'src/db/migrations'),
 } as const;
