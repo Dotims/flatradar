@@ -1,3 +1,5 @@
+import { requestHttp2 } from './http2.ts';
+
 /** Honest, and verified to get a 200 from both portals. */
 export const USER_AGENT = 'Overheads/0.1 (+https://github.com/Dotims/overheads)';
 
@@ -27,28 +29,35 @@ export interface FetchOptions {
   timeoutMs?: number;
 }
 
-/** Honest headers, one timeout, retries only where useful. */
+/**
+ * Honest headers, one timeout, retries only where useful.
+ *
+ * Over HTTP/2 rather than `fetch`, which speaks HTTP/1.1 only: OLX stopped answering
+ * HTTP/1.1 on its offers API, and returns 403 to it. See `http2.ts` for the measurement.
+ * Otodom serves both, so one transport covers the two portals.
+ */
 async function fetchText(url: string, options: FetchOptions = {}): Promise<string> {
   const { headers = {}, timeoutMs = 15_000 } = options;
   let lastError: unknown;
 
   for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
     try {
-      const response = await fetch(url, {
-        headers: {
+      const response = await requestHttp2(
+        url,
+        {
           'User-Agent': USER_AGENT,
           'Accept-Language': 'pl-PL,pl;q=0.9',
           ...headers,
         },
-        signal: AbortSignal.timeout(timeoutMs),
-      });
+        timeoutMs,
+      );
 
-      if (!response.ok) {
+      if (response.status >= 400) {
         const error = new HttpError(response.status, url);
         if (!isRetryable(response.status)) throw error;
         lastError = error;
       } else {
-        return await response.text();
+        return response.body;
       }
     } catch (error) {
       // Network failure or timeout: worth another attempt as well.
