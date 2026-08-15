@@ -1,9 +1,11 @@
+import { config } from '../config.ts';
 import { openDatabase } from '../db/client.ts';
 import { migrate } from '../db/migrate.ts';
 import { classifyOffers } from './classify.ts';
 import { collectOlx } from './collect-olx.ts';
 import { collectOtodom } from './collect-otodom.ts';
 import { dedupeOffers } from './dedupe.ts';
+import { notifyNewOffers } from './notify.ts';
 
 const COLLECTORS = { olx: collectOlx, otodom: collectOtodom } as const;
 type SourceName = keyof typeof COLLECTORS;
@@ -47,6 +49,20 @@ export async function collectAll(): Promise<void> {
     // Local, so both run even when fetching failed.
     await classifyOffers(sql);
     await dedupeOffers(sql);
+
+    // Last, and after deduplication in particular: the same flat advertised on both
+    // portals is one flat, and the owner should hear about it once.
+    const credentials = config.telegram();
+    if (credentials !== null) {
+      try {
+        const sent = await notifyNewOffers(sql, credentials);
+        if (sent > 0) console.log(`Announced ${sent} listing(s) on Telegram.`);
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        console.error(`telegram failed: ${reason}`);
+        failures.push('telegram');
+      }
+    }
   } finally {
     await sql.end();
   }

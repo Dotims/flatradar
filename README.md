@@ -19,8 +19,14 @@ connection instead: a local timer, or a phone posting to `/api/ingest/olx`
 
 ## Status
 
-Early. Working: OLX collection and classification into tiers. Missing: Otodom, Telegram,
-the dashboard.
+Running. Both portals are collected, classified and deduplicated, the dashboard is
+deployed, and listings that land in budget are announced on Telegram. The bot is
+configured through `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`; with either unset a
+collection round finishes quietly, which is how the cloud schedule runs.
+
+`notify:seed` is run once, when a bot is first connected: it records everything currently
+in budget as already announced, so switching notifications on does not replay a week of
+collecting into a phone.
 
 ## Tiers
 

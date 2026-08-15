@@ -4,6 +4,8 @@ import { collectAll } from './commands/collect.ts';
 import { collectOlx } from './commands/collect-olx.ts';
 import { collectOtodom, type CollectOtodomOptions } from './commands/collect-otodom.ts';
 import { dedupeOffers } from './commands/dedupe.ts';
+import { notifyNewOffers, seedNotifications } from './commands/notify.ts';
+import { config } from './config.ts';
 import { openDatabase, type Sql } from './db/client.ts';
 import { migrate } from './db/migrate.ts';
 import { startServer } from './server.ts';
@@ -73,6 +75,26 @@ const COMMANDS: Record<string, (args: string[]) => Promise<void>> = {
     withDatabase(async (sql) => {
       const { pairs, hidden } = await dedupeOffers(sql);
       console.log(`Matched ${pairs} pairs, hid ${hidden} listings.`);
+    }),
+
+  notify: () =>
+    withDatabase(async (sql) => {
+      const credentials = config.telegram();
+      if (credentials === null) {
+        throw new Error('TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID are not set. Put them in .env.');
+      }
+
+      const sent = await notifyNewOffers(sql, credentials);
+      console.log(
+        sent === 0 ? 'Nothing in budget left to announce.' : `Announced ${sent} listing(s).`,
+      );
+    }),
+
+  // Run once, when the bot is first connected. See seedNotifications.
+  'notify:seed': () =>
+    withDatabase(async (sql) => {
+      const marked = await seedNotifications(sql);
+      console.log(`Recorded ${marked} listing(s) as already announced. Nothing was sent.`);
     }),
 
   'backfill:photos': () =>
