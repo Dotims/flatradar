@@ -2,12 +2,13 @@ import { config } from '../config.ts';
 import { openDatabase } from '../db/client.ts';
 import { migrate } from '../db/migrate.ts';
 import { classifyOffers } from './classify.ts';
+import { collectGratka } from './collect-gratka.ts';
 import { collectOlx } from './collect-olx.ts';
 import { collectOtodom } from './collect-otodom.ts';
 import { dedupeOffers } from './dedupe.ts';
 import { notifyNewOffers } from './notify.ts';
 
-const COLLECTORS = { olx: collectOlx, otodom: collectOtodom } as const;
+const COLLECTORS = { olx: collectOlx, otodom: collectOtodom, gratka: collectGratka } as const;
 type SourceName = keyof typeof COLLECTORS;
 
 /**

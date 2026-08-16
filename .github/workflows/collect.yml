@@ -40,7 +40,7 @@ jobs:
           # about the shape of the client rather than about us. That can come back at any
           # time, and the round is meant to fail loudly when it does: the local timer in
           # deploy/ is the standby, one systemctl command away.
-          OVERHEADS_SOURCES: olx,otodom
+          OVERHEADS_SOURCES: olx,otodom,gratka
           # With these unset a round collects and says nothing, which is how it ran until
           # now. They are set so the phone hears about a flat while the computer is off,
           # which is the entire point of collecting up here.

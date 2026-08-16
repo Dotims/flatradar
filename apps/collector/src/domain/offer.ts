@@ -1,4 +1,4 @@
-export type OfferSource = 'olx' | 'otodom';
+export type OfferSource = 'olx' | 'otodom' | 'gratka';
 
 /** 'exact' = the portal gives a precise pin, 'approximate' = only the neighbourhood. */
 export type CoordsPrecision = 'exact' | 'approximate';

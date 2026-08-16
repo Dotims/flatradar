@@ -1,6 +1,7 @@
 import { backfillPhotos } from './commands/backfill-photos.ts';
 import { classifyOffers } from './commands/classify.ts';
 import { collectAll } from './commands/collect.ts';
+import { collectGratka } from './commands/collect-gratka.ts';
 import { collectOlx } from './commands/collect-olx.ts';
 import { collectOtodom, type CollectOtodomOptions } from './commands/collect-otodom.ts';
 import { dedupeOffers } from './commands/dedupe.ts';
@@ -75,6 +76,8 @@ const COMMANDS: Record<string, (args: string[]) => Promise<void>> = {
   collect: () => collectAll(),
 
   'collect:olx': (args) => withDatabase((sql) => collectOlx(sql, count(args[0]) ?? 2)),
+
+  'collect:gratka': (args) => withDatabase((sql) => collectGratka(sql, count(args[0]) ?? 2)),
 
   'collect:otodom': (args) => {
     // Built up rather than passed as undefined: exactOptionalPropertyTypes means an

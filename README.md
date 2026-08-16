@@ -1,6 +1,6 @@
 # Overheads
 
-Watches new rental listings in Kraków on OLX and Otodom, drops the ones outside the
+Watches new rental listings in Kraków on OLX, Otodom and Gratka, drops the ones outside the
 target area, works out the real monthly cost (rent + building fee + utilities mentioned
 in the description) and pings Telegram when something lands in budget.
 
@@ -51,13 +51,15 @@ whether its total was read or assumed, and a list of reasons in plain words.
 
 ## How it works
 
-Both portals serve structured JSON, so there is no HTML parsing and no headless browser.
+All three portals serve structured JSON, so there is no HTML parsing and no headless
+browser.
 
 | Portal | Data source                     | What it gives                                                   |
 | ------ | ------------------------------- | --------------------------------------------------------------- |
 | OLX    | `/api/v1/offers/` (public API)  | price, building fee, district, description, blurred coordinates |
 | Otodom | `/_next/data/<buildId>/...json` | price, building fee, street, district, advertiser type          |
 | Otodom | listing page                    | exact coordinates (`radius: 0`), full description               |
+| Gratka | `__NUXT_DATA__` in the page     | price, street, description, photographs, agency or owner        |
 
 Otodom publishes no API. What it does publish is the data endpoint Next.js serves its
 own pages from, which is the same payload without the HTML. The `buildId` in that path
@@ -67,6 +69,14 @@ when a request comes back 404.
 Otodom search results carry no description and no coordinates, and both cost a request
 per listing. They are fetched only for listings that could still reach a tier, which on
 a normal run is a handful out of seventy.
+
+Gratka ships its search results inside the page, as JSON, in the `__NUXT_DATA__` script
+tag. `_payload.json` looks like the endpoint to ask instead and is a cached prerender of
+page one that ignores `?page=` and `?sort=`. It gives no building fee, so every Gratka
+listing meets the 400 PLN assumption, and no coordinates at all, so these have no pin;
+the district is read from the advert's own URL, which carries it for four in five.
+Measured before it was added: of 105 listings, half were already here from the other two
+portals and the rest brought about five flats a day in budget that nothing else showed.
 
 ## Stack
 
@@ -82,6 +92,7 @@ cp .env.example .env                            # then put your Neon connection 
 pnpm --filter @overheads/collector migrate      # creates the schema
 pnpm --filter @overheads/collector collect:olx     # fetches and stores OLX listings
 pnpm --filter @overheads/collector collect:otodom # same for Otodom
+pnpm --filter @overheads/collector collect:gratka # same for Gratka
 pnpm --filter @overheads/collector classify     # judges what is stored, no network
 pnpm --filter @overheads/collector status       # prints what is in the database
 ```

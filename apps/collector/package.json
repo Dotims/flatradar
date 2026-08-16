@@ -10,6 +10,7 @@
     "status": "node --env-file-if-exists=../../.env src/index.ts",
     "collect": "node --env-file-if-exists=../../.env src/cli.ts collect",
     "collect:olx": "node --env-file-if-exists=../../.env src/cli.ts collect:olx",
+    "collect:gratka": "node --env-file-if-exists=../../.env src/cli.ts collect:gratka",
     "collect:otodom": "node --env-file-if-exists=../../.env src/cli.ts collect:otodom",
     "classify": "node --env-file-if-exists=../../.env src/cli.ts classify",
     "dedupe": "node --env-file-if-exists=../../.env src/cli.ts dedupe",

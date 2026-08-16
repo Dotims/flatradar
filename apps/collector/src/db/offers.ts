@@ -171,7 +171,7 @@ export interface StoredOffer extends NormalizedOffer {
 
 // The check constraints live in Postgres, the types live here. Verify rather than assume.
 function toSource(value: string): OfferSource {
-  if (value === 'olx' || value === 'otodom') return value;
+  if (value === 'olx' || value === 'otodom' || value === 'gratka') return value;
   throw new Error(`Unknown offer source "${value}".`);
 }
 

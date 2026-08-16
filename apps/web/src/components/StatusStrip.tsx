@@ -3,6 +3,13 @@ import type { SourceStatus } from '../types.ts';
 
 const STALE_AFTER_MIN = 40;
 
+/**
+ * Written out rather than taken from the response, so a portal that has never finished a
+ * round still says so. Read off the sources alone, a collector that dies before its first
+ * run would simply be missing from the strip, which looks like a portal we never wanted.
+ */
+const PORTALS = ['olx', 'otodom', 'gratka'];
+
 function Feed({ status, name }: { status: SourceStatus | undefined; name: string }) {
   const failed = status?.ok === false;
   const age = minutesSince(status?.lastCollectedAt ?? null);
@@ -37,9 +44,10 @@ export function StatusStrip({ total, sources }: { total: number; sources: Source
 
   return (
     <div className="rule flex flex-wrap items-center gap-x-5 gap-y-3 rounded-xl bg-graphite-950 px-4 py-3">
-      <div className="flex items-center gap-4">
-        <Feed status={byName('olx')} name="olx" />
-        <Feed status={byName('otodom')} name="otodom" />
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        {PORTALS.map((name) => (
+          <Feed key={name} status={byName(name)} name={name} />
+        ))}
       </div>
 
       <span className="hidden h-4 w-px bg-line sm:block" />
