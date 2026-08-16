@@ -1,0 +1,51 @@
+name: Probe OLX
+
+# One-off, to be deleted once it has answered.
+#
+# OLX collection was moved off this repository because a datacenter address got a 403,
+# measured over HTTP/1.1. On 2026-08-15 the portal started refusing HTTP/1.1 from an
+# ordinary home connection too, and answering the same request over HTTP/2. If those are
+# one rule rather than two, GitHub can collect OLX itself and the flat-hunting stops
+# depending on one computer being awake. Three requests, spaced, then it says what it saw.
+
+on:
+  push:
+    branches: [fix/olx-http2]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 26
+
+      - name: The offers API from a datacenter address
+        env:
+          URL: 'https://www.olx.pl/api/v1/offers/?offset=0&limit=5&category_id=15&city_id=8959&sort_by=created_at%3Adesc'
+          UA: 'Overheads/0.1 (+https://github.com/Dotims/overheads)'
+        run: |
+          echo -n 'curl http/1.1: '
+          curl -s -o /dev/null -w '%{http_version} -> %{http_code}\n' \
+            --http1.1 -H "User-Agent: $UA" -H 'Accept: application/json' "$URL"
+          sleep 5
+
+          echo -n 'curl http/2:   '
+          curl -s -o /dev/null -w '%{http_version} -> %{http_code}\n' \
+            --http2 -H "User-Agent: $UA" -H 'Accept: application/json' "$URL"
+          sleep 5
+
+          echo -n 'the collector transport: '
+          node --input-type=module -e "
+            const { requestHttp2 } = await import('./apps/collector/src/sources/http2.ts');
+            const reply = await requestHttp2(process.env.URL, {
+              'User-Agent': process.env.UA,
+              Accept: 'application/json',
+            }, 15000);
+            console.log(reply.status, reply.body.slice(0, 120).replace(/\n/g, ' '));
+          "
