@@ -33,6 +33,26 @@ jobs:
       - run: pnpm collect
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          # OLX answers 403 from datacenter addresses. It is collected from a machine
-          # on a normal connection instead, not disguised into getting through here.
-          OVERHEADS_SOURCES: otodom
+          # Both portals. OLX used to refuse this address and the round asked for Otodom
+          # alone; measured again on 2026-08-16 it answers 200 here, four times over two
+          # minutes, to the same honest User-Agent we have always sent. What it still
+          # refuses from here is curl, over either protocol version, so the refusal is
+          # about the shape of the client rather than about us. That can come back at any
+          # time, and the round is meant to fail loudly when it does: the local timer in
+          # deploy/ is the standby, one systemctl command away.
+          OVERHEADS_SOURCES: olx,otodom
+          # With these unset a round collects and says nothing, which is how it ran until
+          # now. They are set so the phone hears about a flat while the computer is off,
+          # which is the entire point of collecting up here.
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          # The owner's filters, kept as repository variables so they can be changed
+          # without a commit. Blank is no bound. See .env.example for what each one means.
+          NOTIFY_HIDDEN_DISTRICTS: ${{ vars.NOTIFY_HIDDEN_DISTRICTS }}
+          NOTIFY_PRIVATE_ONLY: ${{ vars.NOTIFY_PRIVATE_ONLY }}
+          NOTIFY_MIN_COST_PLN: ${{ vars.NOTIFY_MIN_COST_PLN }}
+          NOTIFY_MAX_COST_PLN: ${{ vars.NOTIFY_MAX_COST_PLN }}
+          NOTIFY_MIN_AREA_M2: ${{ vars.NOTIFY_MIN_AREA_M2 }}
+          NOTIFY_MAX_AREA_M2: ${{ vars.NOTIFY_MAX_AREA_M2 }}
+          NOTIFY_MIN_ROOMS: ${{ vars.NOTIFY_MIN_ROOMS }}
+          NOTIFY_MAX_ROOMS: ${{ vars.NOTIFY_MAX_ROOMS }}

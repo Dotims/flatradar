@@ -1,8 +1,13 @@
 # Running Overheads unattended
 
-Two systemd user units, for the half of the work that cannot run in the cloud: OLX
-answers 403 from datacenter addresses, so it is collected here while Otodom is collected
-by GitHub Actions. Nothing is lost while this machine is off except OLX.
+Two systemd user units. Since 2026-08-16 both portals are collected by GitHub Actions,
+so the collection timer here is a standby: it exists for the day OLX goes back to
+refusing datacenter addresses, and it is left disabled meanwhile. Running it alongside
+the cloud round means two rounds racing over the same listings and, worse, two rounds
+deciding at once what to announce.
+
+The API unit is a different matter and stays on: it serves the dashboard's data on
+loopback for local work.
 
 User units rather than system ones: this reads a hosted database and serves a page on
 loopback, so it has no business running as root or before anyone has logged in.
@@ -17,8 +22,12 @@ mkdir -p ~/.config/systemd/user
 cp deploy/*.service deploy/*.timer ~/.config/systemd/user/
 systemctl --user daemon-reload
 
-systemctl --user enable --now overheads-collect.timer   # OLX every 15 minutes
 systemctl --user enable --now overheads-api.service     # keep the dashboard's API up
+
+# Only when the cloud round can no longer reach OLX. Set OVERHEADS_SOURCES in the unit
+# to the portals the cloud is failing on, so the two schedules do not collect the same
+# portal at the same time.
+systemctl --user enable --now overheads-collect.timer   # a round every 15 minutes
 ```
 
 Collection stops when you log out unless lingering is on:

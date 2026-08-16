@@ -1,8 +1,12 @@
 # Collecting OLX from a phone
 
-OLX answers 403 to anything from a datacenter address, verified against seven request
-variants including a browser user agent and the plain homepage. The block is at the edge,
-by address, before any header is read, so nothing about the request can change the answer.
+A standby since 2026-08-16, not the arrangement: the cloud round collects OLX again.
+
+For a week OLX answered 403 to anything from a datacenter address, verified against seven
+request variants including a browser user agent and the plain homepage. Measured again on
+2026-08-16, our own client gets a 200 from GitHub Actions while curl from the same runner
+is still refused, so the refusal turned out to be about the shape of the client rather
+than the address alone. It can come back, which is why this page stays.
 
 The browser cannot do it either: the OLX API sends no `Access-Control-Allow-Origin`, so a
 page on another origin may not read the response. A button on the dashboard is therefore

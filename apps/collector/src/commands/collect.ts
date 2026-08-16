@@ -11,13 +11,15 @@ const COLLECTORS = { olx: collectOlx, otodom: collectOtodom } as const;
 type SourceName = keyof typeof COLLECTORS;
 
 /**
- * OLX answers 403 from datacenter addresses, so the scheduled cloud round asks for
- * Otodom only and OLX is collected from a machine on a normal connection.
+ * Which portals this round asks for. Unset means both, which is what the cloud schedule
+ * now runs: OLX refused a datacenter address for a week and answers one again since
+ * 2026-08-16, so the split that kept OLX on a home machine is a standby rather than the
+ * arrangement. See the note in .github/workflows/collect.yml.
  */
 function requestedSources(): SourceName[] {
   // Both names, because the old one is set in an installed systemd unit and in the
-  // scheduled workflow. Losing it would quietly widen the cloud round back to OLX, whose
-  // every request from a datacenter address is refused.
+  // scheduled workflow. The unit sets it to olx alone, and losing it there would have a
+  // standby round collecting Otodom in parallel with the cloud one.
   const raw = process.env.OVERHEADS_SOURCES ?? process.env.FLATRADAR_SOURCES;
   if (raw === undefined || raw.trim() === '') return ['olx', 'otodom'];
 

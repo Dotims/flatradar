@@ -9,13 +9,20 @@ and the good ones in Kraków are gone within hours.
 
 ## Where it runs
 
-Otodom is collected by GitHub Actions every fifteen minutes, writing to Neon.
+Both portals are collected by GitHub Actions every fifteen minutes, writing to Neon.
+Nothing here needs a computer to be awake.
 
-OLX answers 403 to anything from a datacenter address. The block sits at the edge and is
-decided on the address before a single header is read, so nothing about the request can
-change the answer and there is nothing to disguise. It is collected from an ordinary
-connection instead: a local timer, or a phone posting to `/api/ingest/olx`
-(see `docs/olx-from-a-phone.md`). `OVERHEADS_SOURCES` picks the portals for a round.
+OLX refused datacenter addresses for a week and the round asked for Otodom alone while a
+local timer collected OLX from an ordinary connection. Measured again on 2026-08-16 it
+answers 200 from the cloud, four times over two minutes, to the same User-Agent we have
+always sent; what it still refuses from there is curl, over either protocol version. So
+the refusal is about the shape of the client rather than about us, and it can return
+without notice. The local timer (`deploy/`) and the phone (`docs/olx-from-a-phone.md`)
+stay as standbys, and a refused round fails loudly rather than collecting nothing
+quietly. `OVERHEADS_SOURCES` picks the portals for a round.
+
+Both portals are read over HTTP/2. OLX stopped answering HTTP/1.1 on 2026-08-15, from
+every address, and Node's `fetch` speaks nothing else.
 
 ## Status
 
