@@ -40,12 +40,18 @@ jobs:
             --http2 -H "User-Agent: $UA" -H 'Accept: application/json' "$URL"
           sleep 5
 
-          echo -n 'the collector transport: '
+          echo 'the collector transport, four times over two minutes:'
           node --input-type=module -e "
             const { requestHttp2 } = await import('./apps/collector/src/sources/http2.ts');
-            const reply = await requestHttp2(process.env.URL, {
-              'User-Agent': process.env.UA,
-              Accept: 'application/json',
-            }, 15000);
-            console.log(reply.status, reply.body.slice(0, 120).replace(/\n/g, ' '));
+            const headers = { 'User-Agent': process.env.UA, Accept: 'application/json' };
+
+            for (let round = 1; round <= 4; round++) {
+              if (round > 1) await new Promise((r) => setTimeout(r, 30_000));
+              const reply = await requestHttp2(process.env.URL, headers, 15_000);
+              let offers = 'unreadable';
+              try {
+                offers = String(JSON.parse(reply.body).data.length);
+              } catch {}
+              console.log(\`  round \${round}: \${reply.status}, offers \${offers}\`);
+            }
           "
